@@ -1,17 +1,15 @@
+use super::worlds_manager::WorldsManager;
+use crate::{
+    entities::{
+        entity::{Position, Rotation},
+        EntityComponent,
+    },
+    network::{client_network::ClientNetwork, sync_players::PlayerSpawnEvent},
+};
 use bevy::prelude::{Mut, World};
 use bevy_ecs::system::Command;
 use common::chunks::block_position::BlockPositionTrait;
 use network::messages::{NetworkMessageType, ServerMessages};
-
-use crate::{
-    entities::{
-        EntityComponent,
-        entity::{Position, Rotation},
-    },
-    network::{client_network::ClientNetwork, sync_players::PlayerSpawnEvent},
-};
-
-use super::worlds_manager::WorldsManager;
 
 pub struct SpawnPlayer {
     world_slug: String,
@@ -42,12 +40,14 @@ impl SpawnPlayer {
 impl Command for SpawnPlayer {
     fn apply(self, world: &mut World) {
         world.resource_scope(|world, worlds_manager: Mut<WorldsManager>| {
-            let Some(mut world_manager) = worlds_manager.get_world_manager_mut(&self.world_slug) else {
+            let Some(mut world_manager) = worlds_manager.get_world_manager_mut(&self.world_slug)
+            else {
                 panic!("SpawnPlayer: world \"{}\" doesn't exists", self.world_slug);
             };
 
             let bundle = (self.position.clone(), self.rotation, self.client.clone());
-            let world_entity = world_manager.spawn_player(self.position, bundle, self.components.clone());
+            let world_entity =
+                world_manager.spawn_player(self.position, bundle, self.components.clone());
 
             self.client.set_world_entity(Some(world_entity.clone()));
 
@@ -65,7 +65,9 @@ impl Command for SpawnPlayer {
                 .get_chunks_map()
                 .is_chunk_loaded(&self.position.get_chunk_position())
             {
-                world.write_message(PlayerSpawnEvent::new(world_entity.clone())).unwrap();
+                world
+                    .write_message(PlayerSpawnEvent::new(world_entity.clone()))
+                    .unwrap();
             }
         });
     }
