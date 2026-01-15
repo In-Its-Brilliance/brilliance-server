@@ -75,7 +75,7 @@ impl ChunkMap {
         }
     }
 
-    pub fn get_chunk_column(&self, chunk_position: &ChunkPosition) -> Option<ChunkSectionType> {
+    pub fn get_chunk_column(&self, chunk_position: &ChunkPosition) -> Option<ChunkSectionType<'_>> {
         match self.chunks.get(chunk_position) {
             Some(c) => Some(c.read()),
             None => None,
@@ -293,7 +293,7 @@ mod tests {
     fn test_tickets_spawn_despawn() {
         let storage = WorldStorageManager::create("test".to_string(), 1, &WorldStorageSettings::default()).unwrap();
         let mut chunk_map = ChunkMap::new(1, WorldGeneratorSettings::default(), storage);
-        let entity = Entity::from_raw(0);
+        let entity = Entity::from_raw_u32(0).unwrap();
         let chunks_distance = 2_u16;
 
         // Spawn
@@ -336,7 +336,7 @@ mod tests {
         let storage = WorldStorageManager::create("test".to_string(), 1, &WorldStorageSettings::default()).unwrap();
         let mut chunk_map = ChunkMap::new(1, WorldGeneratorSettings::default(), storage);
         let world_slug = "default".to_string();
-        let entity = Entity::from_raw(0);
+        let entity = Entity::from_raw_u32(0).unwrap();
         let pos = ChunkPosition::new(0, 0);
 
         chunk_map.chunks_load_state.insert_ticket(pos.clone(), entity.clone());

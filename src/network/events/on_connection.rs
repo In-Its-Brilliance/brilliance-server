@@ -1,9 +1,8 @@
-use bevy::prelude::Event;
-use bevy_ecs::prelude::EventReader;
+use bevy_ecs::{message::Message, prelude::MessageReader};
 
 use crate::network::client_network::ClientNetwork;
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct PlayerConnectionEvent {
     client: ClientNetwork,
 }
@@ -14,7 +13,7 @@ impl PlayerConnectionEvent {
     }
 }
 
-pub fn on_connection(mut connection_events: EventReader<PlayerConnectionEvent>) {
+pub fn on_connection(mut connection_events: MessageReader<PlayerConnectionEvent>) {
     for event in connection_events.read() {
         event.client.send_allow_connection();
     }

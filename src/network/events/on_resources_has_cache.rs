@@ -1,14 +1,15 @@
-use bevy::prelude::{Event, EventWriter};
-use bevy_ecs::prelude::EventReader;
+use bevy_ecs::message::Message;
+use bevy_ecs::message::MessageReader;
+use bevy_ecs::message::MessageWriter;
 use bevy_ecs::system::Res;
 use network::messages::{NetworkMessageType, ServerMessages};
 
-use crate::client_resources::resources_manager::ARCHIVE_CHUNK_SIZE;
 use crate::client_resources::resources_manager::ResourceManager;
+use crate::client_resources::resources_manager::ARCHIVE_CHUNK_SIZE;
 use crate::network::client_network::ClientNetwork;
 use crate::network::events::on_media_loaded::PlayerMediaLoadedEvent;
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct ResourcesHasCacheEvent {
     client: ClientNetwork,
     exists: bool,
@@ -21,9 +22,9 @@ impl ResourcesHasCacheEvent {
 }
 
 pub fn on_resources_has_cache(
-    mut events: EventReader<ResourcesHasCacheEvent>,
+    mut events: MessageReader<ResourcesHasCacheEvent>,
     resources_manager: Res<ResourceManager>,
-    mut player_media_loaded_events: EventWriter<PlayerMediaLoadedEvent>,
+    mut player_media_loaded_events: MessageWriter<PlayerMediaLoadedEvent>,
 ) {
     for event in events.read() {
         if !event.exists {

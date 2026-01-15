@@ -133,6 +133,13 @@ pub(crate) fn rescan_server_settings(
     }
 
     let mut path = launch_settings.get_server_data_path();
+    
+    if let Err(e) = std::fs::create_dir_all(&path) {
+        log::error!(target: "settings", "&cCannot create server data directory:");
+        log::error!(target: "settings", "{}", e);
+        RuntimePlugin::stop();
+    }
+
     path.push("settings.yml");
 
     if let Err(e) = server_settings.load(path, &*resource_manager) {

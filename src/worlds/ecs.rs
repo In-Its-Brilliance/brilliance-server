@@ -61,15 +61,15 @@ impl Ecs {
         return Ok(empty);
     }
 
-    pub fn _get_mut<T: Component<Mutability = Mutable>>(&mut self, entity: Entity) -> Option<Mut<T>> {
+    pub fn _get_mut<T: Component<Mutability = Mutable>>(&mut self, entity: Entity) -> Option<Mut<'_, T>> {
         self.ecs.get_mut(entity)
     }
 
-    pub fn get_entity(&self, entity: Entity) -> Option<EntityRef> {
+    pub fn get_entity(&self, entity: Entity) -> Option<EntityRef<'_>> {
         self.ecs.get_entity(entity).ok()
     }
 
-    pub fn entity_mut(&mut self, entity: Entity) -> EntityWorldMut {
+    pub fn entity_mut(&mut self, entity: Entity) -> EntityWorldMut<'_> {
         self.ecs.entity_mut(entity)
     }
 

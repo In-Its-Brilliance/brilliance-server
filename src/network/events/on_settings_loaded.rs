@@ -7,13 +7,13 @@ use crate::{
     },
     network::client_network::ClientNetwork,
 };
-use bevy::prelude::{Commands, Event, Res};
-use bevy_ecs::prelude::EventReader;
+use bevy::prelude::{Commands, Res};
+use bevy_ecs::message::{Message, MessageReader};
 use network::messages::{NetworkEntitySkin, NetworkEntityTag};
 
 use crate::worlds::{commands::SpawnPlayer, worlds_manager::WorldsManager};
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct PlayerSettingsLoadedEvent {
     client: ClientNetwork,
 }
@@ -26,7 +26,7 @@ impl PlayerSettingsLoadedEvent {
 
 pub fn on_settings_loaded(
     mut commands: Commands,
-    mut events: EventReader<PlayerSettingsLoadedEvent>,
+    mut events: MessageReader<PlayerSettingsLoadedEvent>,
     worlds_manager: Res<WorldsManager>,
 ) {
     for event in events.read() {
@@ -41,7 +41,12 @@ pub fn on_settings_loaded(
         components.push(EntityComponent::Skin(Some(skin)));
 
         let client_info = event.client.get_client_info().unwrap();
-        let tag = EntityTagComponent::create(NetworkEntityTag::create(client_info.get_login().clone(), 2.1, 32, 3));
+        let tag = EntityTagComponent::create(NetworkEntityTag::create(
+            client_info.get_login().clone(),
+            2.1,
+            32,
+            3,
+        ));
         components.push(EntityComponent::Tag(Some(tag)));
 
         commands.queue(SpawnPlayer::create(

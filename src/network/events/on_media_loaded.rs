@@ -1,16 +1,16 @@
-use bevy::prelude::{Event, Res};
-use bevy_ecs::prelude::EventReader;
+use bevy::prelude::Res;
+use bevy_ecs::message::{Message, MessageReader};
 use network::messages::{NetworkMessageType, ServerMessages};
 
 use crate::{
     client_resources::{
-        resources_manager::{ARCHIVE_CHUNK_SIZE, ResourceManager},
+        resources_manager::{ResourceManager, ARCHIVE_CHUNK_SIZE},
         server_settings::ServerSettings,
     },
     network::client_network::ClientNetwork,
 };
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct PlayerMediaLoadedEvent {
     client: ClientNetwork,
     last_index: Option<u32>,
@@ -26,7 +26,7 @@ impl PlayerMediaLoadedEvent {
 }
 
 pub fn on_media_loaded(
-    mut events: EventReader<PlayerMediaLoadedEvent>,
+    mut events: MessageReader<PlayerMediaLoadedEvent>,
     server_settings: Res<ServerSettings>,
     resources_manager: Res<ResourceManager>,
 ) {
@@ -40,7 +40,8 @@ pub fn on_media_loaded(
                     let resources_part = ServerMessages::ResourcesPart {
                         index: index + 1,
                         total: total as u32,
-                        data: resources_manager.get_archive_part(index as usize + 1, ARCHIVE_CHUNK_SIZE),
+                        data: resources_manager
+                            .get_archive_part(index as usize + 1, ARCHIVE_CHUNK_SIZE),
                     };
 
                     event

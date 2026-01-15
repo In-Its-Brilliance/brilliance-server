@@ -1,5 +1,6 @@
-use bevy::prelude::{Event, EventWriter};
-use bevy_ecs::prelude::EventReader;
+use bevy_ecs::message::Message;
+use bevy_ecs::message::MessageReader;
+use bevy_ecs::message::MessageWriter;
 use bevy_ecs::system::Res;
 use network::messages::{NetworkMessageType, ServerMessages};
 
@@ -8,7 +9,7 @@ use crate::network::client_network::ClientInfo;
 use crate::network::client_network::ClientNetwork;
 use crate::network::events::on_media_loaded::PlayerMediaLoadedEvent;
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct PlayerConnectionInfoEvent {
     client: ClientNetwork,
     pub login: String,
@@ -36,9 +37,9 @@ impl PlayerConnectionInfoEvent {
 }
 
 pub fn on_connection_info(
-    mut connection_info_events: EventReader<PlayerConnectionInfoEvent>,
+    mut connection_info_events: MessageReader<PlayerConnectionInfoEvent>,
     resources_manager: Res<ResourceManager>,
-    mut player_media_loaded_events: EventWriter<PlayerMediaLoadedEvent>,
+    mut player_media_loaded_events: MessageWriter<PlayerMediaLoadedEvent>,
 ) {
     for event in connection_info_events.read() {
         event.client.set_client_info(ClientInfo::new(&event));
@@ -60,7 +61,9 @@ pub fn on_connection_info(
                 list: resources_manager.get_resources_scheme().clone(),
                 archive_hash: resources_manager.get_archive_hash().clone(),
             };
-            event.client.send_message(NetworkMessageType::ReliableOrdered, &scheme);
+            event
+                .client
+                .send_message(NetworkMessageType::ReliableOrdered, &scheme);
         } else {
             // Or send player as loaded
 

@@ -1,4 +1,5 @@
-use bevy::prelude::{EventReader, Res};
+use bevy::prelude::Res;
+use bevy_ecs::message::MessageReader;
 
 use crate::{
     entities::skin::EntitySkinComponent,
@@ -15,7 +16,7 @@ use crate::{
 /// или при прогрузке чанка, если entity попал в загружающийся чанк.
 pub(crate) fn on_player_spawn(
     worlds_manager: Res<WorldsManager>,
-    mut connection_events: EventReader<PlayerSpawnEvent>,
+    mut connection_events: MessageReader<PlayerSpawnEvent>,
 ) {
     #[cfg(feature = "trace")]
     let _span = bevy_utils::tracing::info_span!("sync_player_spawn").entered();

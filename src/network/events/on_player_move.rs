@@ -1,5 +1,4 @@
-use bevy::prelude::Event;
-use bevy_ecs::prelude::EventReader;
+use bevy_ecs::message::{Message, MessageReader};
 use bevy_ecs::system::ResMut;
 use common::chunks::block_position::BlockPositionTrait;
 
@@ -9,7 +8,7 @@ use crate::network::sync_players::sync_player_move;
 use crate::worlds::world_manager::WorldManager;
 use crate::{entities::entity::Position, worlds::worlds_manager::WorldsManager};
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct PlayerMoveEvent {
     client: ClientNetwork,
     position: Position,
@@ -26,7 +25,10 @@ impl PlayerMoveEvent {
     }
 }
 
-pub fn on_player_move(mut player_move_events: EventReader<PlayerMoveEvent>, worlds_manager: ResMut<WorldsManager>) {
+pub fn on_player_move(
+    mut player_move_events: MessageReader<PlayerMoveEvent>,
+    worlds_manager: ResMut<WorldsManager>,
+) {
     for event in player_move_events.read() {
         let world_entity = event.client.get_world_entity();
         let world_entity = match world_entity.as_ref() {
@@ -56,7 +58,12 @@ pub fn on_player_move(mut player_move_events: EventReader<PlayerMoveEvent>, worl
             );
             continue;
         }
-        move_player(&mut *world_manager, world_entity, event.position, event.rotation);
+        move_player(
+            &mut *world_manager,
+            world_entity,
+            event.position,
+            event.rotation,
+        );
     }
 }
 
@@ -74,7 +81,10 @@ pub fn move_player(
         let entity_ref = ecs.get_entity(world_entity.get_entity()).unwrap();
 
         let network = entity_ref.get::<ClientNetwork>().unwrap();
-        network.send_unload_chunks(world_entity.get_world_slug(), change.abandoned_chunks.clone());
+        network.send_unload_chunks(
+            world_entity.get_world_slug(),
+            change.abandoned_chunks.clone(),
+        );
     }
 
     sync_player_move(world_manager, world_entity.get_entity(), &chunks_changed);

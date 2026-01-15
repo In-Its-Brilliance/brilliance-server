@@ -1,5 +1,5 @@
-use bevy::prelude::{Event, ResMut};
-use bevy_ecs::prelude::EventReader;
+use bevy::prelude::ResMut;
+use bevy_ecs::message::{Message, MessageReader};
 use common::chunks::{block_position::BlockPosition, chunk_data::BlockDataInfo};
 use network::messages::{NetworkMessageType, ServerMessages};
 
@@ -8,7 +8,7 @@ use crate::{
     worlds::worlds_manager::WorldsManager,
 };
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct EditBlockEvent {
     client: ClientNetwork,
     world_slug: String,
@@ -32,7 +32,10 @@ impl EditBlockEvent {
     }
 }
 
-pub fn on_edit_block(mut edit_block_events: EventReader<EditBlockEvent>, worlds_manager: ResMut<WorldsManager>) {
+pub fn on_edit_block(
+    mut edit_block_events: MessageReader<EditBlockEvent>,
+    worlds_manager: ResMut<WorldsManager>,
+) {
     for event in edit_block_events.read() {
         let world_entity = event.client.get_world_entity();
         let world_entity = match world_entity.as_ref() {
@@ -65,7 +68,9 @@ pub fn on_edit_block(mut edit_block_events: EventReader<EditBlockEvent>, worlds_
             .edit_block(event.position.clone(), event.new_block_info.clone())
         {
             let msg = ServerMessages::ConsoleOutput { message: e };
-            event.client.send_message(NetworkMessageType::ReliableOrdered, &msg);
+            event
+                .client
+                .send_message(NetworkMessageType::ReliableOrdered, &msg);
             return;
         }
         sync_world_block_change(&*world_manager, event.position, event.new_block_info)

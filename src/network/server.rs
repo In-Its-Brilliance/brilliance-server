@@ -17,11 +17,10 @@ use crate::network::sync_players::PlayerSpawnEvent;
 use crate::{LaunchSettings, console::commands_executer::CommandsHandler};
 use bevy::time::Time;
 use bevy_app::{App, Update};
-use bevy_ecs::change_detection::Mut;
+use bevy_ecs::{change_detection::Mut, message::MessageWriter};
 use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::{
-    prelude::EventWriter,
     system::{Res, ResMut},
     world::World,
 };
@@ -76,31 +75,31 @@ impl NetworkPlugin {
 
         app.add_systems(Update, console_client_command_event);
 
-        app.add_event::<ResourcesHasCacheEvent>();
+        app.add_message::<ResourcesHasCacheEvent>();
         app.add_systems(Update, on_resources_has_cache.after(handle_events_system));
 
-        app.add_event::<PlayerConnectionEvent>();
+        app.add_message::<PlayerConnectionEvent>();
         app.add_systems(Update, on_connection.after(handle_events_system));
 
-        app.add_event::<PlayerConnectionInfoEvent>();
+        app.add_message::<PlayerConnectionInfoEvent>();
         app.add_systems(Update, on_connection_info.after(handle_events_system));
 
-        app.add_event::<PlayerDisconnectEvent>();
+        app.add_message::<PlayerDisconnectEvent>();
         app.add_systems(Update, on_disconnect.after(handle_events_system));
 
-        app.add_event::<PlayerMoveEvent>();
+        app.add_message::<PlayerMoveEvent>();
         app.add_systems(Update, on_player_move.after(handle_events_system));
 
-        app.add_event::<EditBlockEvent>();
+        app.add_message::<EditBlockEvent>();
         app.add_systems(Update, on_edit_block.after(handle_events_system));
 
-        app.add_event::<PlayerMediaLoadedEvent>();
+        app.add_message::<PlayerMediaLoadedEvent>();
         app.add_systems(Update, on_media_loaded.after(handle_events_system));
 
-        app.add_event::<PlayerSettingsLoadedEvent>();
+        app.add_message::<PlayerSettingsLoadedEvent>();
         app.add_systems(Update, on_settings_loaded.after(handle_events_system));
 
-        app.add_event::<PlayerSpawnEvent>();
+        app.add_message::<PlayerSpawnEvent>();
         app.add_systems(Update, on_player_spawn);
     }
 
@@ -114,12 +113,12 @@ fn receive_message_system(
     network_container: Res<NetworkContainer>,
     time: Res<Time>,
     clients: Res<ClientsContainer>,
-    mut resources_has_cache_events: EventWriter<ResourcesHasCacheEvent>,
-    mut connection_info_events: EventWriter<PlayerConnectionInfoEvent>,
-    mut player_move_events: EventWriter<PlayerMoveEvent>,
-    mut edit_block_events: EventWriter<EditBlockEvent>,
-    mut player_media_loaded_events: EventWriter<PlayerMediaLoadedEvent>,
-    mut settings_loaded_events: EventWriter<PlayerSettingsLoadedEvent>,
+    mut resources_has_cache_events: MessageWriter<ResourcesHasCacheEvent>,
+    mut connection_info_events: MessageWriter<PlayerConnectionInfoEvent>,
+    mut player_move_events: MessageWriter<PlayerMoveEvent>,
+    mut edit_block_events: MessageWriter<EditBlockEvent>,
+    mut player_media_loaded_events: MessageWriter<PlayerMediaLoadedEvent>,
+    mut settings_loaded_events: MessageWriter<PlayerSettingsLoadedEvent>,
 ) {
     #[cfg(feature = "trace")]
     let _span = bevy_utils::tracing::info_span!("receive_message_system").entered();
@@ -200,8 +199,8 @@ fn handle_events_system(
     mut clients: ResMut<ClientsContainer>,
     network_container: Res<NetworkContainer>,
 
-    mut connection_events: EventWriter<PlayerConnectionEvent>,
-    mut disconnection_events: EventWriter<PlayerDisconnectEvent>,
+    mut connection_events: MessageWriter<PlayerConnectionEvent>,
+    mut disconnection_events: MessageWriter<PlayerDisconnectEvent>,
 ) {
     let network = network_container.server_network.as_ref();
 

@@ -1,22 +1,22 @@
+use super::{
+    completer::{CustomCompleter, CustomHinter},
+    helper::CustomHelper,
+};
+use crate::network::runtime_plugin::RuntimePlugin;
 use bevy_ecs::resource::Resource;
 use chrono::Local;
 use common::utils::colors::parse_to_terminal_colors;
 use flume::{Drain, Receiver, Sender};
 use lazy_static::lazy_static;
 use rustyline::{
-    config::Configurer, error::ReadlineError, highlight::MatchingBracketHighlighter, validate::MatchingBracketValidator, ColorMode, Config, Editor, ExternalPrinter
+    config::Configurer, error::ReadlineError, highlight::MatchingBracketHighlighter,
+    validate::MatchingBracketValidator, ColorMode, Config, Editor, ExternalPrinter,
 };
 use std::{
     fs::OpenOptions,
+    path::PathBuf,
     thread::{self},
     time::Duration,
-};
-
-use crate::network::runtime_plugin::RuntimePlugin;
-
-use super::{
-    completer::{CustomCompleter, CustomHinter},
-    helper::CustomHelper,
 };
 
 lazy_static! {
@@ -34,7 +34,7 @@ const CONSOLE_HISTORY_FILE: &str = "console_history.txt";
 
 /// Read and write console std
 impl ConsoleHandler {
-    pub fn run_handler(&mut self) {
+    pub fn run_handler(&mut self, server_data_path: &PathBuf) {
         let config = Config::builder()
             .history_ignore_space(true)
             .auto_add_history(true)
@@ -54,15 +54,20 @@ impl ConsoleHandler {
         rl.set_helper(Some(helper));
         rl.set_enable_signals(true);
 
+        let console_history_path = server_data_path.join(CONSOLE_HISTORY_FILE);
         let _ = OpenOptions::new()
             .create_new(true)
             .write(true)
             .append(true)
-            .open(CONSOLE_HISTORY_FILE);
+            .open(console_history_path.clone());
 
-        let _ = match rl.load_history(CONSOLE_HISTORY_FILE) {
-            Ok(_) => log::info!(target: "console", "Console file history loaded from &e\"{}\"", CONSOLE_HISTORY_FILE),
-            Err(e) => log::error!(target: "console", "Console history &e\"{}\"&r error: &c{}", CONSOLE_HISTORY_FILE, e),
+        let _ = match rl.load_history(&console_history_path) {
+            Ok(_) => {
+                log::info!(target: "console", "Console file history loaded from &e\"{}\"", console_history_path.display())
+            }
+            Err(e) => {
+                log::error!(target: "console", "Console history &e\"{}\"&r error: &c{}", console_history_path.display(), e)
+            }
         };
 
         let mut printer = rl.create_external_printer().unwrap();
@@ -76,12 +81,12 @@ impl ConsoleHandler {
                     }
                 }
                 Err(ReadlineError::Interrupted) => {
-                    let _ = match rl.save_history(CONSOLE_HISTORY_FILE) {
+                    let _ = match rl.save_history(&console_history_path) {
                         Ok(_) => {
-                            log::info!(target: "console", "Console file history saved in &e\"{}\"", CONSOLE_HISTORY_FILE)
+                            log::info!(target: "console", "Console file history saved in &e\"{}\"", console_history_path.display())
                         }
                         Err(e) => {
-                            log::error!(target: "console", "Console file &e\"{}\"&r history save error: &c{}", CONSOLE_HISTORY_FILE, e)
+                            log::error!(target: "console", "Console file &e\"{}\"&r history save error: &c{}", console_history_path.display(), e)
                         }
                     };
 

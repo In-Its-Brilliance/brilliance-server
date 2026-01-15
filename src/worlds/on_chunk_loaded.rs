@@ -1,5 +1,4 @@
-use bevy::prelude::EventWriter;
-use bevy_ecs::system::Res;
+use bevy_ecs::{message::MessageWriter, system::Res};
 
 use crate::network::{
     client_network::{ClientNetwork, WorldEntity},
@@ -14,7 +13,7 @@ use super::worlds_manager::WorldsManager;
 pub fn on_chunk_loaded(
     worlds_manager: Res<WorldsManager>,
     network_container: Res<NetworkContainer>,
-    mut player_spawn_events: EventWriter<PlayerSpawnEvent>,
+    mut player_spawn_events: MessageWriter<PlayerSpawnEvent>,
 ) {
     for (_key, world) in worlds_manager.get_worlds().iter() {
         let w = world.read();

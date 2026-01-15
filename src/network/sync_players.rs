@@ -1,4 +1,5 @@
-use bevy::prelude::{Entity, Event};
+use bevy::prelude::Entity;
+use bevy_ecs::message::Message;
 use network::messages::{NetworkMessageType, ServerMessages};
 
 use crate::{
@@ -11,7 +12,7 @@ use super::{
     sync_entities::{send_start_streaming_entity, sync_entity_move},
 };
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct PlayerSpawnEvent {
     pub world_entity: WorldEntity,
 }
@@ -29,7 +30,10 @@ pub fn send_entities_for_player(world_manager: &WorldManager, target_entity: Ent
     let entity_ref = ecs.get_entity(target_entity).unwrap();
     if let Some(client) = entity_ref.get::<ClientNetwork>() {
         // Sends all existing entities from the player's line of sight
-        if let Some(player_chunks) = world_manager.get_chunks_map().get_watching_chunks(&target_entity) {
+        if let Some(player_chunks) = world_manager
+            .get_chunks_map()
+            .get_watching_chunks(&target_entity)
+        {
             for chunk in player_chunks {
                 if !world_manager.get_chunks_map().is_chunk_loaded(chunk) {
                     continue;
@@ -42,7 +46,11 @@ pub fn send_entities_for_player(world_manager: &WorldManager, target_entity: Ent
                     }
 
                     if target_ref.get::<EntitySkinComponent>().is_some() {
-                        send_start_streaming_entity(&*client, target_ref, world_manager.get_slug().clone());
+                        send_start_streaming_entity(
+                            &*client,
+                            target_ref,
+                            world_manager.get_slug().clone(),
+                        );
                     }
                 }
             }
@@ -58,7 +66,11 @@ pub fn send_entities_for_player(world_manager: &WorldManager, target_entity: Ent
 /// - вызывает для ClientNetwork:
 ///   • отправлять ему StopStreamingEntity из старых чанков
 ///   • и StartStreamingEntity для новых
-pub fn sync_player_move(world_manager: &WorldManager, target_entity: Entity, chunks_changed: &Option<ChunkChanged>) {
+pub fn sync_player_move(
+    world_manager: &WorldManager,
+    target_entity: Entity,
+    chunks_changed: &Option<ChunkChanged>,
+) {
     #[cfg(feature = "trace")]
     let _span = bevy_utils::tracing::info_span!("sync_player_move").entered();
 
@@ -90,7 +102,11 @@ pub fn sync_player_move(world_manager: &WorldManager, target_entity: Entity, chu
                     continue;
                 }
                 if target_ref.get::<EntitySkinComponent>().is_some() {
-                    send_start_streaming_entity(&*client, target_ref, world_manager.get_slug().clone());
+                    send_start_streaming_entity(
+                        &*client,
+                        target_ref,
+                        world_manager.get_slug().clone(),
+                    );
                 }
             }
         }

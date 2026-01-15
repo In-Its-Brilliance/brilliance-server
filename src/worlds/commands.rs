@@ -65,7 +65,7 @@ impl Command for SpawnPlayer {
                 .get_chunks_map()
                 .is_chunk_loaded(&self.position.get_chunk_position())
             {
-                world.send_event(PlayerSpawnEvent::new(world_entity.clone())).unwrap();
+                world.write_message(PlayerSpawnEvent::new(world_entity.clone())).unwrap();
             }
         });
     }

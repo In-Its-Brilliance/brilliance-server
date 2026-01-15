@@ -1,10 +1,10 @@
+use self::{
+    commands_executer::CommandsHandler, console_handler::ConsoleHandler, console_sender::Console,
+};
+use crate::{launch_settings::LaunchSettings, network::runtime_plugin::RuntimePlugin};
 use bevy_app::{App, Plugin, Startup, Update};
-use bevy_ecs::{system::ResMut, world::World};
+use bevy_ecs::{system::Res, system::ResMut, world::World};
 use completer::CustomCompleter;
-
-use crate::network::runtime_plugin::RuntimePlugin;
-
-use self::{commands_executer::CommandsHandler, console_handler::ConsoleHandler, console_sender::Console};
 
 pub mod commands_executer;
 pub mod completer;
@@ -47,9 +47,9 @@ fn handler_console_complete(world: &mut World) {
     }
 }
 
-fn run_handler(mut console_handler: ResMut<ConsoleHandler>) {
+fn run_handler(mut console_handler: ResMut<ConsoleHandler>, launch_settings: Res<LaunchSettings>) {
     if RuntimePlugin::is_stopped() {
         return;
     }
-    console_handler.run_handler();
+    console_handler.run_handler(&launch_settings.get_server_data_path());
 }

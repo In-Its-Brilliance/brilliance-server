@@ -1,16 +1,18 @@
-use bevy::prelude::Event;
 use bevy_ecs::{
-    prelude::EventReader,
+    message::{Message, MessageReader},
     system::{Res, ResMut},
 };
 
 use crate::{
     entities::skin::EntitySkinComponent,
-    network::{client_network::ClientNetwork, clients_container::ClientsContainer, sync_entities::sync_entity_despawn},
+    network::{
+        client_network::ClientNetwork, clients_container::ClientsContainer,
+        sync_entities::sync_entity_despawn,
+    },
     worlds::worlds_manager::WorldsManager,
 };
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct PlayerDisconnectEvent {
     client: ClientNetwork,
     reason: String,
@@ -23,7 +25,7 @@ impl PlayerDisconnectEvent {
 }
 
 pub fn on_disconnect(
-    mut disconnection_events: EventReader<PlayerDisconnectEvent>,
+    mut disconnection_events: MessageReader<PlayerDisconnectEvent>,
     mut clients: ResMut<ClientsContainer>,
     worlds_manager: Res<WorldsManager>,
 ) {
@@ -41,7 +43,9 @@ pub fn on_disconnect(
         let world_entity = event.client.get_world_entity();
         match world_entity {
             Some(c) => {
-                let mut world_manager = worlds_manager.get_world_manager_mut(&c.get_world_slug()).unwrap();
+                let mut world_manager = worlds_manager
+                    .get_world_manager_mut(&c.get_world_slug())
+                    .unwrap();
 
                 let ecs = world_manager.get_ecs();
                 let entity_ref = ecs.get_entity(c.get_entity()).unwrap();

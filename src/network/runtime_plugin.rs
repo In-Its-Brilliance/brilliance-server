@@ -1,6 +1,7 @@
-use bevy::prelude::{App, EventWriter, Plugin};
+use bevy::prelude::{App, Plugin};
 use bevy_app::AppExit;
 use bevy_app::{First, Startup};
+use bevy_ecs::message::MessageWriter;
 use bevy_ecs::system::{Res, ResMut};
 use lazy_static::lazy_static;
 use std::sync::{Arc, RwLock};
@@ -74,7 +75,7 @@ fn activate_runtime() {
 }
 
 fn update_runtime(
-    mut app_exit_events: EventWriter<AppExit>,
+    mut app_exit_events: MessageWriter<AppExit>,
     mut clients: ResMut<ClientsContainer>,
     mut console_handler: ResMut<ConsoleHandler>,
     worlds_manager: Res<WorldsManager>,
