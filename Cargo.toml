@@ -1,5 +1,5 @@
 [package]
-name = "rheia-server"
+name = "brilliance-server"
 version = "0.1.0"
 edition = "2021"
 publish = false
@@ -8,8 +8,8 @@ publish = false
 trace = []
 
 [dependencies]
-common = { path = "../rheia-common" }
-network = { path = "../rheia-network" }
+common = { path = "../brilliance-common" }
+network = { path = "../brilliance-network" }
 
 bevy = { version = "0.17", default-features = false }
 bevy_app = "0.17"
@@ -28,7 +28,7 @@ shellexpand = "3.1"
 regex = "1.11"
 tokio = { version = "1.44", features = [ "full" ] }
 
-zip = "2.6"
+zip = "7.1"
 
 ahash = "0.8"
 dashmap = "6.1"

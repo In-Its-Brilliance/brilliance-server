@@ -38,7 +38,7 @@ fn main() {
     log::set_max_level(log_level.clone());
     info!(target: "main", "Log level using: {}", log_level);
 
-    info!(target: "main", "Rheia Server version &d{}", VERSION);
+    info!(target: "main", "Brilliance Server version &d{}", VERSION);
 
     let mut app = App::new();
     app.insert_resource(server_settings);
