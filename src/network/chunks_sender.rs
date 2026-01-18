@@ -1,67 +1,151 @@
-use crate::worlds::worlds_manager::WorldsManager;
-use ahash::HashMap;
+use crate::{
+    entities::entity::Position,
+    worlds::{world_manager::WorldManager, worlds_manager::WorldsManager},
+    CHUNKS_DISTANCE,
+};
 use bevy_ecs::system::Res;
-use common::chunks::chunk_position::ChunkPosition;
+use common::{
+    chunks::{block_position::BlockPositionTrait, chunk_position::ChunkPosition},
+    utils::spiral_iterator::SpiralIterator,
+};
 
-use super::{client_network::ClientNetwork, server::NetworkContainer};
+use super::{
+    client_network::{ClientNetwork, WorldEntity},
+    clients_container::ClientsContainer,
+    server::NetworkContainer,
+};
 
-pub fn send_chunks(worlds_manager: Res<WorldsManager>, network_container: Res<NetworkContainer>) {
-    #[cfg(feature = "trace")]
-    let _span = bevy_utils::tracing::info_span!("send_chunks").entered();
+/// Sends missing chunk data to connected clients.
+///
+/// Iterates over all clients, skips disconnected ones and those with a full send queue,
+/// checks the chunks each player is watching, and sends not-yet-sent loaded chunks
+/// in the correct order.
+pub fn send_chunks(
+    worlds_manager: Res<WorldsManager>,
+    clients: Res<ClientsContainer>,
+    network_container: Res<NetworkContainer>,
+) {
+    let now = std::time::Instant::now();
 
-    // Iterate all worlds
-    for (_world_slug, world_lock) in worlds_manager.get_worlds() {
-        let world = world_lock.read();
-
-        // A set of chunks and players that require them to be sent
-        let mut queue: HashMap<ChunkPosition, Vec<&ClientNetwork>> = Default::default();
-
-        let chunks_map = world.get_chunks_map();
-
-        // Iterate all loaded chunks
-        for (chunk_position, chunk_col_lock) in chunks_map.get_chunks() {
-            let chunk_col = chunk_col_lock.read();
-            if !chunk_col.is_loaded() {
-                continue;
-            }
-
-            // Get all entites that watch this chunk
-            let watch_entities = match chunks_map.get_chunk_watchers(&chunk_position) {
-                Some(v) => v,
-                None => {
-                    panic!("chunk_loaded_event_reader chunk {} not found", chunk_position);
-                }
-            };
-            'entity_loop: for entity in watch_entities {
-                let ecs = world.get_ecs();
-                let entity_ref = ecs.get_entity(*entity).unwrap();
-                let network = entity_ref.get::<ClientNetwork>().unwrap();
-
-                let connected = network_container.is_connected(&network);
-                if !connected {
-                    continue 'entity_loop;
-                }
-
-                if network.is_queue_limit() {
-                    continue 'entity_loop;
-                }
-
-                if network.is_already_sended(&chunk_position) {
-                    continue 'entity_loop;
-                }
-
-                let clients_queue = queue.entry(chunk_position.clone()).or_insert(Default::default());
-                network.send_chunk_to_queue(&chunk_position);
-                clients_queue.push(&network);
-            }
+    // iterate over all clients
+    for (_client_id, network_client) in clients.iter() {
+        // skip disconnected clients
+        if !network_container.is_connected(&network_client) {
+            continue;
         }
 
-        for (chunk_position, clients) in queue {
-            let message = world.get_network_chunk_bytes(&chunk_position).unwrap();
-            for client in clients.iter() {
-                // log::info!("send_loaded_chunk chunk_position:{}", chunk_position);
-                client.send_loaded_chunk(&chunk_position, message.clone());
-            }
+        // skip if send queue is full
+        if network_client.is_queue_limit() {
+            continue;
         }
+
+        // client is not attached to a world yet
+        let Some(world_entity) = network_client.get_world_entity() else {
+            continue;
+        };
+
+        // get player's world
+        let world = worlds_manager
+            .get_world_manager(world_entity.get_world_slug())
+            .unwrap();
+
+        // chunks the player is watching
+        let player_watching_chunks = match world
+            .get_chunks_map()
+            .get_watching_chunks(&world_entity.get_entity())
+        {
+            Some(v) => v,
+            None => continue, // player is not watching any chunks
+        };
+
+        // check if there is at least one chunk not sent yet
+        let has_not_sent = player_watching_chunks
+            .iter()
+            .any(|chunk_position| !network_client.is_already_sended(chunk_position));
+
+        // skip if all chanks are sent
+        if !has_not_sent {
+            continue;
+        }
+
+        send_chunks_to_client(
+            &*world,
+            &world_entity,
+            network_client,
+            player_watching_chunks,
+        );
+    }
+
+    let elapsed = now.elapsed();
+    #[cfg(debug_assertions)]
+    if elapsed >= std::time::Duration::from_millis(20) {
+        log::warn!(target: "network.chunks_sender", "&7send_chunks lag: {:.2?}", elapsed);
+    }
+}
+
+/// Sends all missing chunks to a single client.
+///
+/// Iterates over chunks around the player in spiral order,
+/// checks that the chunk is watched, loaded, and not yet sent,
+/// and enqueues and sends the chunk data until the send queue limit is reached.
+fn send_chunks_to_client(
+    world_manager: &WorldManager,
+    world_entity: &WorldEntity,
+    network_client: &ClientNetwork,
+    player_watching_chunks: &Vec<ChunkPosition>,
+) {
+    let ecs = world_manager.get_ecs();
+    let entity_ref = ecs.get_entity(world_entity.get_entity()).unwrap();
+    let position = entity_ref
+        .get::<Position>()
+        .expect("player inside world must have position");
+    let center = position.get_chunk_position();
+
+    // iterate chunks in spiral order around the player
+    let iter = SpiralIterator::new(center.x as i64, center.z as i64, CHUNKS_DISTANCE as i64);
+
+    for (x, z) in iter {
+        // stop sending if queue limit is reached
+        if network_client.is_queue_limit() {
+            return;
+        }
+
+        let chunk_position = ChunkPosition::new(x, z);
+
+        // skip chunks the player is not watching
+        if !player_watching_chunks.contains(&chunk_position) {
+            continue;
+        }
+
+        // skip already sent chunks
+        if network_client.is_already_sended(&chunk_position) {
+            continue;
+        }
+
+        // get chunk data
+        let chunk = match world_manager
+            .get_chunks_map()
+            .get_chunk_column(&chunk_position)
+        {
+            Some(c) => c,
+            None => continue,
+        };
+        if !chunk.is_loaded() {
+            continue;
+        }
+
+        // serialize chunk once and send to client
+        let message = world_manager
+            .get_network_chunk_bytes(&chunk_position)
+            .expect("send_chunks: chunk bytes not found");
+
+        network_client.send_chunk_to_queue(&chunk_position);
+        network_client.send_loaded_chunk(&chunk_position, message);
+        log::info!(
+            target: "network.chunks_sender",
+            "SEND_LOADED_CHUNK {} chunk_position:{}",
+            world_entity.get_entity().index(),
+            chunk_position
+        );
     }
 }

@@ -61,7 +61,8 @@ impl ChunkColumn {
         chunk_block: &ChunkBlockPosition,
         new_block_info: Option<BlockDataInfo>,
     ) {
-        self.sections.change_block(section, &chunk_block, new_block_info);
+        self.sections
+            .change_block(section, &chunk_block, new_block_info);
     }
 
     pub(crate) fn is_for_despawn(&self, duration: Duration) -> bool {
@@ -77,6 +78,7 @@ impl ChunkColumn {
     }
 
     pub(crate) fn build_network_format(&self) -> ServerMessages {
+        assert!(self.sections.len() > 0, "build_network_format: chunk must contain at least one section");
         return ServerMessages::ChunkSectionInfoEncoded {
             world_slug: self.world_slug.clone(),
             encoded: self.sections.encode_zip(),
@@ -124,8 +126,12 @@ pub(crate) fn load_chunk(
         }
         // Or generate new
         else {
-            chunk_column.sections = world_generator.read().generate_chunk_data(&chunk_column.chunk_position);
+            chunk_column.sections = world_generator
+                .read()
+                .generate_chunk_data(&chunk_column.chunk_position);
         }
+        
+        assert!(chunk_column.sections.len() > 0, "load_chunk: chunk must contain at least one section");
         chunk_column.loaded = true;
 
         if !cfg!(test) {

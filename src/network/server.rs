@@ -15,7 +15,7 @@ use crate::network::client_network::ClientNetwork;
 use crate::network::clients_container::ClientsContainer;
 use crate::network::sync_players::PlayerSpawnEvent;
 use crate::{LaunchSettings, console::commands_executer::CommandsHandler};
-use bevy::time::Time;
+use bevy::time::{common_conditions::on_timer, Time};
 use bevy_app::{App, Update};
 use bevy_ecs::{change_detection::Mut, message::MessageWriter};
 use bevy_ecs::resource::Resource;
@@ -29,7 +29,6 @@ use lazy_static::lazy_static;
 use network::NetworkServer;
 use network::messages::{ClientMessages, NetworkMessageType, ServerMessages};
 use network::server::{ConnectionMessages, IServerConnection, IServerNetwork};
-use std::thread;
 
 const MIN_TICK_TIME: std::time::Duration = std::time::Duration::from_millis(50);
 
@@ -42,6 +41,7 @@ lazy_static! {
 #[derive(Resource)]
 pub struct NetworkContainer {
     server_network: Box<NetworkServer>,
+    runtime: tokio::runtime::Runtime,
 }
 
 impl NetworkContainer {
@@ -50,6 +50,7 @@ impl NetworkContainer {
         let network = io_loop.block_on(async { NetworkServer::new(ip_port).await });
         Self {
             server_network: Box::new(network),
+            runtime: tokio::runtime::Runtime::new().unwrap(),
         }
     }
 
@@ -71,7 +72,7 @@ impl NetworkPlugin {
 
         app.add_systems(Update, receive_message_system);
         app.add_systems(Update, handle_events_system);
-        app.add_systems(Update, send_chunks.after(handle_events_system));
+        app.add_systems(Update, send_chunks.after(handle_events_system).run_if(on_timer(MIN_TICK_TIME)));
 
         app.add_systems(Update, console_client_command_event);
 
@@ -123,15 +124,15 @@ fn receive_message_system(
     #[cfg(feature = "trace")]
     let _span = bevy_utils::tracing::info_span!("receive_message_system").entered();
 
-    // Sleep if the tick rate is less than the minimum tick rate
-    if time.delta() < MIN_TICK_TIME {
-        thread::sleep(MIN_TICK_TIME - time.delta());
-    }
+    let now = std::time::Instant::now();
 
     let network = network_container.server_network.as_ref();
 
-    let io_loop = tokio::runtime::Runtime::new().unwrap();
-    io_loop.block_on(async { network.step(time.delta()).await });
+    if network.connections_count() == 0 {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+
+    network_container.runtime.block_on(async { network.step(time.delta()).await });
 
     for message in network.drain_errors() {
         log::error!(target: "network", "Network error: {}", message);
@@ -182,6 +183,12 @@ fn receive_message_system(
                 }
             }
         }
+    }
+
+    let elapsed = now.elapsed();
+    #[cfg(debug_assertions)]
+    if elapsed >= std::time::Duration::from_millis(100) {
+        log::warn!(target: "network.server", "&7receive_message_system lag: {:.2?}", elapsed);
     }
 }
 
