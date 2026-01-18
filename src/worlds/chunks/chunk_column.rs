@@ -51,7 +51,7 @@ impl ChunkColumn {
         );
         self.sections = chunk_data;
         self.loaded = true;
-        log::info!(target: "set_sections", "chunk {} loaded", self.chunk_position);
+        // log::info!(target: "set_sections", "chunk {} loaded", self.chunk_position);
     }
 
     pub fn get_sections(&self) -> &ChunkData {
@@ -114,7 +114,7 @@ pub(crate) fn load_chunk(
         }
 
         // Load from storage
-        let index = match storage.lock().has_chunk_data(&chunk_position) {
+        let index = match storage.read().has_chunk_data(&chunk_position) {
             Ok(i) => i,
             Err(e) => {
                 log::error!(target: "worlds", "&cChunk load error!");
@@ -125,11 +125,21 @@ pub(crate) fn load_chunk(
         };
 
         let sections = if let Some(index) = index {
-            match storage.lock().load_chunk_data(index) {
+            let encoded = match storage.read().read_chunk_data(index) {
                 Ok(c) => c,
                 Err(e) => {
                     log::error!(target: "worlds", "&cChunk load error!");
                     log::error!(target: "worlds", "Error: {}", e);
+                    RuntimePlugin::stop();
+                    return;
+                }
+            };
+            let encoded_len = encoded.len();
+            match ChunkData::decode_zip(encoded) {
+                Ok(d) => d,
+                Err(e) => {
+                    log::error!(target: "worlds", "&cChunk decode error!");
+                    log::error!(target: "worlds", "Error: {} (encoded size:{})", e, encoded_len);
                     RuntimePlugin::stop();
                     return;
                 }

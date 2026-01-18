@@ -1,3 +1,8 @@
+use crate::{
+    network::runtime_plugin::RuntimePlugin,
+    worlds::{chunks::chunk_column::load_chunk, world_manager::ChunkChanged},
+    CHUNKS_DESPAWN_TIMER,
+};
 use ahash::AHashMap;
 use bevy::prelude::Entity;
 use common::{
@@ -14,14 +19,8 @@ use common::{
     worlds_storage::taits::IWorldStorage,
     WorldStorageManager, VERTICAL_SECTIONS,
 };
-use parking_lot::{Mutex, RwLock, RwLockReadGuard};
+use parking_lot::{RwLock, RwLockReadGuard};
 use std::{sync::Arc, time::Duration};
-
-use crate::{
-    network::runtime_plugin::RuntimePlugin,
-    worlds::{chunks::chunk_column::load_chunk, world_manager::ChunkChanged},
-    CHUNKS_DESPAWN_TIMER,
-};
 
 use super::{chunk_column::ChunkColumn, chunks_load_state::ChunksLoadState};
 
@@ -29,7 +28,7 @@ pub type MapChunksType = AHashMap<ChunkPosition, Arc<RwLock<ChunkColumn>>>;
 
 pub type ChunkSectionType<'a> = RwLockReadGuard<'a, ChunkColumn>;
 
-pub type StorageLock = Arc<Mutex<WorldStorageManager>>;
+pub type StorageLock = Arc<RwLock<WorldStorageManager>>;
 
 /// Container of 2d ChunkColumn's.
 /// This container manages vision of the chunks
@@ -56,7 +55,7 @@ impl ChunkMap {
             loaded_chunks: flume::unbounded(),
 
             world_generator: Arc::new(RwLock::new(WorldGenerator::create(Some(seed), world_settings).unwrap())),
-            storage: Arc::new(Mutex::new(storage)),
+            storage: Arc::new(RwLock::new(storage)),
         }
     }
 
@@ -211,10 +210,11 @@ impl ChunkMap {
             if for_despawn {
                 log::trace!(target: "chunks", "Chunk {} despawned", chunk);
 
+                let sections = chunk_column.get_sections();
                 let save_chunk_data = self
                     .storage
-                    .lock()
-                    .save_chunk_data(chunk_column.get_chunk_position(), &chunk_column.get_sections());
+                    .read()
+                    .save_chunk_data(chunk_column.get_chunk_position(), &sections.encode_zip());
                 if let Err(e) = save_chunk_data {
                     log::error!(target: "worlds", "&cChunk save error!");
                     log::error!(target: "worlds", "Error: {}", e);
@@ -232,7 +232,10 @@ impl ChunkMap {
             }
 
             if !self.chunks.contains_key(&chunk_position) {
-                let chunk_column = Arc::new(RwLock::new(ChunkColumn::new(chunk_position.clone(), world_slug.clone())));
+                let chunk_column = Arc::new(RwLock::new(ChunkColumn::new(
+                    chunk_position.clone(),
+                    world_slug.clone(),
+                )));
 
                 log::trace!(target: "chunks", "Send chunk {} to load", chunk_position);
                 load_chunk(
@@ -268,10 +271,11 @@ impl ChunkMap {
     pub fn save(&mut self) -> Result<(), String> {
         for (_chunk_position, chunk_column) in self.chunks.iter() {
             let chunk_column = chunk_column.read();
+            let sections = chunk_column.get_sections();
             let save_chunk_data = self
                 .storage
-                .lock()
-                .save_chunk_data(chunk_column.get_chunk_position(), chunk_column.get_sections());
+                .read()
+                .save_chunk_data(chunk_column.get_chunk_position(), &sections.encode_zip());
             if let Err(e) = save_chunk_data {
                 return Err(e);
             }
