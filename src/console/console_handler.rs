@@ -61,14 +61,16 @@ impl ConsoleHandler {
             .append(true)
             .open(console_history_path.clone());
 
-        let _ = match rl.load_history(&console_history_path) {
-            Ok(_) => {
-                log::info!(target: "console", "Console file history loaded from &e\"{}\"", console_history_path.display())
-            }
-            Err(e) => {
-                log::error!(target: "console", "Console history &e\"{}\"&r error: &c{}", console_history_path.display(), e)
-            }
-        };
+        if console_history_path.exists() {
+            let _ = match rl.load_history(&console_history_path) {
+                Ok(_) => {
+                    log::info!(target: "console", "Console file history loaded from &e\"{}\"", console_history_path.display())
+                }
+                Err(e) => {
+                    log::error!(target: "console", "Console history &e\"{}\"&r error: &c{}", console_history_path.display(), e)
+                }
+            };
+        }
 
         let mut printer = rl.create_external_printer().unwrap();
 

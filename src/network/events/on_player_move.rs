@@ -51,7 +51,7 @@ pub fn on_player_move(
             .get_chunks_map()
             .is_chunk_loaded(&event.position.get_chunk_position())
         {
-            log::warn!(
+            log::debug!(
                 target: "network",
                 "Client ip:{} tries to move inside loading chunk {}",
                 event.client.get_client_ip(), event.position.get_chunk_position()
