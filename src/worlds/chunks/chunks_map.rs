@@ -214,7 +214,7 @@ impl ChunkMap {
                 let save_chunk_data = self
                     .storage
                     .read()
-                    .save_chunk_data(chunk_column.get_chunk_position(), &sections.encode_zip());
+                    .save_chunk_data(chunk_column.get_chunk_position(), &sections.compress());
                 if let Err(e) = save_chunk_data {
                     log::error!(target: "worlds", "&cChunk save error!");
                     log::error!(target: "worlds", "Error: {}", e);
@@ -275,7 +275,7 @@ impl ChunkMap {
             let save_chunk_data = self
                 .storage
                 .read()
-                .save_chunk_data(chunk_column.get_chunk_position(), &sections.encode_zip());
+                .save_chunk_data(chunk_column.get_chunk_position(), &sections.compress());
             if let Err(e) = save_chunk_data {
                 return Err(e);
             }

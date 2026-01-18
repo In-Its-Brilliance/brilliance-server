@@ -30,7 +30,8 @@ use network::messages::{ClientMessages, NetworkMessageType, ServerMessages};
 use network::server::{ConnectionMessages, IServerConnection, IServerNetwork};
 use network::NetworkServer;
 
-const MIN_TICK_TIME: std::time::Duration = std::time::Duration::from_millis(50);
+const NO_CONNECTIONS_DELAY: std::time::Duration = std::time::Duration::from_millis(5);
+const SEND_CHUNKS_DELAY: std::time::Duration = std::time::Duration::from_millis(10);
 
 pub struct NetworkPlugin;
 
@@ -74,7 +75,9 @@ impl NetworkPlugin {
         app.add_systems(Update, handle_events_system);
         app.add_systems(
             Update,
-            send_chunks.after(handle_events_system).run_if(on_timer(MIN_TICK_TIME)),
+            send_chunks
+                .after(handle_events_system)
+                .run_if(on_timer(SEND_CHUNKS_DELAY)),
         );
 
         app.add_systems(Update, console_client_command_event);
@@ -132,7 +135,7 @@ fn receive_message_system(
     let network = network_container.server_network.as_ref();
 
     if network.connections_count() == 0 {
-        std::thread::sleep(std::time::Duration::from_millis(5));
+        std::thread::sleep(NO_CONNECTIONS_DELAY);
     }
 
     network_container

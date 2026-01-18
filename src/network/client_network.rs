@@ -163,7 +163,7 @@ impl ClientNetwork {
     /// If too many chunks currently was sended and waiting
     /// for confirmation that they have reached the client
     pub fn is_queue_limit(&self) -> bool {
-        self.send_chunk_queue.read().len() > SEND_CHUNK_QUEUE_LIMIT
+        self.send_chunk_queue.read().len() >= SEND_CHUNK_QUEUE_LIMIT
     }
 
     pub fn send_chunk_to_queue(&self, chunk_position: &ChunkPosition) {

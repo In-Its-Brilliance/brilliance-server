@@ -92,7 +92,7 @@ impl ChunkColumn {
         assert!(self.loaded, "build_network_format: chunk must be loaded");
         return ServerMessages::ChunkSectionInfoEncoded {
             world_slug: self.world_slug.clone(),
-            encoded: self.sections.encode_zip(),
+            encoded: self.sections.compress(),
             chunk_position: self.chunk_position.clone(),
         };
     }
@@ -135,7 +135,7 @@ pub(crate) fn load_chunk(
                 }
             };
             let encoded_len = encoded.len();
-            match ChunkData::decode_zip(encoded) {
+            match ChunkData::decompress(encoded) {
                 Ok(d) => d,
                 Err(e) => {
                     log::error!(target: "worlds", "&cChunk decode error!");

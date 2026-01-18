@@ -45,15 +45,10 @@ pub fn send_chunks(
         };
 
         // get player's world
-        let world = worlds_manager
-            .get_world_manager(world_entity.get_world_slug())
-            .unwrap();
+        let world = worlds_manager.get_world_manager(world_entity.get_world_slug()).unwrap();
 
         // chunks the player is watching
-        let player_watching_chunks = match world
-            .get_chunks_map()
-            .get_watching_chunks(&world_entity.get_entity())
-        {
+        let player_watching_chunks = match world.get_chunks_map().get_watching_chunks(&world_entity.get_entity()) {
             Some(v) => v,
             None => continue, // player is not watching any chunks
         };
@@ -68,17 +63,12 @@ pub fn send_chunks(
             continue;
         }
 
-        send_chunks_to_client(
-            &*world,
-            &world_entity,
-            network_client,
-            player_watching_chunks,
-        );
+        send_chunks_to_client(&*world, &world_entity, network_client, player_watching_chunks);
     }
 
     let elapsed = now.elapsed();
     #[cfg(debug_assertions)]
-    if elapsed >= std::time::Duration::from_millis(20) {
+    if elapsed >= std::time::Duration::from_millis(100) {
         log::warn!(target: "network.chunks_sender", "&7send_chunks lag: {:.2?}", elapsed);
     }
 }
@@ -123,10 +113,7 @@ fn send_chunks_to_client(
         }
 
         // get chunk data
-        let chunk = match world_manager
-            .get_chunks_map()
-            .get_chunk_column(&chunk_position)
-        {
+        let chunk = match world_manager.get_chunks_map().get_chunk_column(&chunk_position) {
             Some(c) => c,
             None => continue,
         };
@@ -141,11 +128,11 @@ fn send_chunks_to_client(
 
         network_client.send_chunk_to_queue(&chunk_position);
         network_client.send_loaded_chunk(&chunk_position, message);
-        log::info!(
-            target: "network.chunks_sender",
-            "SEND_LOADED_CHUNK {} chunk_position:{}",
-            world_entity.get_entity().index(),
-            chunk_position
-        );
+        // log::info!(
+        //     target: "network.chunks_sender",
+        //     "SEND_LOADED_CHUNK {} chunk_position:{}",
+        //     world_entity.get_entity().index(),
+        //     chunk_position,
+        // );
     }
 }
