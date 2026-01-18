@@ -1,12 +1,12 @@
 use super::events::{
-    on_connection::{PlayerConnectionEvent, on_connection},
-    on_connection_info::{PlayerConnectionInfoEvent, on_connection_info},
-    on_disconnect::{PlayerDisconnectEvent, on_disconnect},
-    on_edit_block::{EditBlockEvent, on_edit_block},
-    on_media_loaded::{PlayerMediaLoadedEvent, on_media_loaded},
-    on_player_move::{PlayerMoveEvent, on_player_move},
-    on_resources_has_cache::{ResourcesHasCacheEvent, on_resources_has_cache},
-    on_settings_loaded::{PlayerSettingsLoadedEvent, on_settings_loaded},
+    on_connection::{on_connection, PlayerConnectionEvent},
+    on_connection_info::{on_connection_info, PlayerConnectionInfoEvent},
+    on_disconnect::{on_disconnect, PlayerDisconnectEvent},
+    on_edit_block::{on_edit_block, EditBlockEvent},
+    on_media_loaded::{on_media_loaded, PlayerMediaLoadedEvent},
+    on_player_move::{on_player_move, PlayerMoveEvent},
+    on_resources_has_cache::{on_resources_has_cache, ResourcesHasCacheEvent},
+    on_settings_loaded::{on_settings_loaded, PlayerSettingsLoadedEvent},
 };
 use crate::entities::entity::{IntoServerPosition, IntoServerRotation};
 use crate::entities::events::on_player_spawn::on_player_spawn;
@@ -14,21 +14,21 @@ use crate::network::chunks_sender::send_chunks;
 use crate::network::client_network::ClientNetwork;
 use crate::network::clients_container::ClientsContainer;
 use crate::network::sync_players::PlayerSpawnEvent;
-use crate::{LaunchSettings, console::commands_executer::CommandsHandler};
+use crate::{console::commands_executer::CommandsHandler, LaunchSettings};
 use bevy::time::{common_conditions::on_timer, Time};
 use bevy_app::{App, Update};
-use bevy_ecs::{change_detection::Mut, message::MessageWriter};
 use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::IntoScheduleConfigs;
+use bevy_ecs::{change_detection::Mut, message::MessageWriter};
 use bevy_ecs::{
     system::{Res, ResMut},
     world::World,
 };
 use flume::{Receiver, Sender};
 use lazy_static::lazy_static;
-use network::NetworkServer;
 use network::messages::{ClientMessages, NetworkMessageType, ServerMessages};
 use network::server::{ConnectionMessages, IServerConnection, IServerNetwork};
+use network::NetworkServer;
 
 const MIN_TICK_TIME: std::time::Duration = std::time::Duration::from_millis(50);
 
@@ -72,7 +72,10 @@ impl NetworkPlugin {
 
         app.add_systems(Update, receive_message_system);
         app.add_systems(Update, handle_events_system);
-        app.add_systems(Update, send_chunks.after(handle_events_system).run_if(on_timer(MIN_TICK_TIME)));
+        app.add_systems(
+            Update,
+            send_chunks.after(handle_events_system).run_if(on_timer(MIN_TICK_TIME)),
+        );
 
         app.add_systems(Update, console_client_command_event);
 
@@ -132,7 +135,9 @@ fn receive_message_system(
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
 
-    network_container.runtime.block_on(async { network.step(time.delta()).await });
+    network_container
+        .runtime
+        .block_on(async { network.step(time.delta()).await });
 
     for message in network.drain_errors() {
         log::error!(target: "network", "Network error: {}", message);

@@ -5,18 +5,22 @@ use common::{
         block_position::{BlockPosition, BlockPositionTrait},
         chunk_data::BlockDataInfo,
         chunk_position::ChunkPosition,
-    }, utils::{spiral_iterator::SpiralIterator, vec_remove_item}, world_generator::{
+    },
+    utils::{spiral_iterator::SpiralIterator, vec_remove_item},
+    world_generator::{
         default::{WorldGenerator, WorldGeneratorSettings},
         traits::IWorldGenerator,
-    }, worlds_storage::taits::IWorldStorage, WorldStorageManager, VERTICAL_SECTIONS
+    },
+    worlds_storage::taits::IWorldStorage,
+    WorldStorageManager, VERTICAL_SECTIONS,
 };
 use parking_lot::{Mutex, RwLock, RwLockReadGuard};
 use std::{sync::Arc, time::Duration};
 
 use crate::{
-    CHUNKS_DESPAWN_TIMER,
     network::runtime_plugin::RuntimePlugin,
     worlds::{chunks::chunk_column::load_chunk, world_manager::ChunkChanged},
+    CHUNKS_DESPAWN_TIMER,
 };
 
 use super::{chunk_column::ChunkColumn, chunks_load_state::ChunksLoadState};
@@ -64,7 +68,7 @@ impl ChunkMap {
         self.chunks.len()
     }
 
-    pub fn get_chunks(&self) -> &MapChunksType {
+    pub fn _get_chunks(&self) -> &MapChunksType {
         &self.chunks
     }
 
@@ -210,7 +214,7 @@ impl ChunkMap {
                 let save_chunk_data = self
                     .storage
                     .lock()
-                    .save_chunk_data(chunk_column.get_chunk_position(), &chunk_column.sections);
+                    .save_chunk_data(chunk_column.get_chunk_position(), &chunk_column.get_sections());
                 if let Err(e) = save_chunk_data {
                     log::error!(target: "worlds", "&cChunk save error!");
                     log::error!(target: "worlds", "Error: {}", e);
@@ -222,22 +226,23 @@ impl ChunkMap {
         });
 
         // Send to load new chunks
-        for (chunk, players) in self.chunks_load_state.by_chunk.iter() {
+        for (chunk_position, players) in self.chunks_load_state.by_chunk.iter() {
             if players.len() == 0 {
                 continue;
             }
 
-            if !self.chunks.contains_key(&chunk) {
-                let chunk_column = Arc::new(RwLock::new(ChunkColumn::new(chunk.clone(), world_slug.clone())));
+            if !self.chunks.contains_key(&chunk_position) {
+                let chunk_column = Arc::new(RwLock::new(ChunkColumn::new(chunk_position.clone(), world_slug.clone())));
 
-                log::trace!(target: "chunks", "Send chunk {} to load", chunk);
+                log::trace!(target: "chunks", "Send chunk {} to load", chunk_position);
                 load_chunk(
                     self.world_generator.clone(),
                     self.storage.clone(),
+                    chunk_position.clone(),
                     chunk_column.clone(),
                     self.loaded_chunks.0.clone(),
                 );
-                self.chunks.insert(chunk.clone(), chunk_column);
+                self.chunks.insert(chunk_position.clone(), chunk_column);
             }
         }
     }
@@ -266,7 +271,7 @@ impl ChunkMap {
             let save_chunk_data = self
                 .storage
                 .lock()
-                .save_chunk_data(chunk_column.get_chunk_position(), &chunk_column.sections);
+                .save_chunk_data(chunk_column.get_chunk_position(), chunk_column.get_sections());
             if let Err(e) = save_chunk_data {
                 return Err(e);
             }
@@ -279,9 +284,9 @@ impl ChunkMap {
 mod tests {
     use bevy::prelude::Entity;
     use common::{
-        WorldStorageManager,
         world_generator::default::WorldGeneratorSettings,
         worlds_storage::taits::{IWorldStorage, WorldStorageSettings},
+        WorldStorageManager,
     };
     use std::time::Duration;
 
