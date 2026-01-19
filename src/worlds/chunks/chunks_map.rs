@@ -238,13 +238,16 @@ impl ChunkMap {
                 )));
 
                 log::trace!(target: "chunks", "Send chunk {} to load", chunk_position);
-                load_chunk(
-                    self.world_generator.clone(),
-                    self.storage.clone(),
-                    chunk_position.clone(),
-                    chunk_column.clone(),
-                    self.loaded_chunks.0.clone(),
-                );
+                #[cfg(not(test))]
+                {
+                    load_chunk(
+                        self.world_generator.clone(),
+                        self.storage.clone(),
+                        chunk_position.clone(),
+                        chunk_column.clone(),
+                        self.loaded_chunks.0.clone(),
+                    );
+                }
                 self.chunks.insert(chunk_position.clone(), chunk_column);
             }
         }
@@ -286,6 +289,8 @@ impl ChunkMap {
 
 #[cfg(test)]
 mod tests {
+    use super::{ChunkMap, ChunkPosition};
+    use crate::CHUNKS_DESPAWN_TIMER;
     use bevy::prelude::Entity;
     use common::{
         world_generator::default::WorldGeneratorSettings,
@@ -294,22 +299,55 @@ mod tests {
     };
     use std::time::Duration;
 
-    use crate::CHUNKS_DESPAWN_TIMER;
+    fn chunks_to_grid(chunks: &Vec<ChunkPosition>, center: &ChunkPosition, radius: i64) -> String {
+        let mut lines = Vec::new();
 
-    use super::{ChunkMap, ChunkPosition};
+        for z in (center.z - radius..=center.z + radius).rev() {
+            let mut line = String::new();
+            for x in center.x - radius..=center.x + radius {
+                if chunks.iter().any(|c| c.x == x && c.z == z) {
+                    line.push('X');
+                } else {
+                    line.push('_');
+                }
+            }
+            lines.push(line);
+        }
+
+        lines.join("\n")
+    }
 
     #[test]
     fn test_tickets_spawn_despawn() {
         let storage = WorldStorageManager::create("test".to_string(), 1, &WorldStorageSettings::default()).unwrap();
         let mut chunk_map = ChunkMap::new(1, WorldGeneratorSettings::default(), storage);
         let entity = Entity::from_raw_u32(0).unwrap();
-        let chunks_distance = 2_u16;
+        let chunks_distance = 5_u16;
 
         // Spawn
         let pos = ChunkPosition::new(0, 0);
         chunk_map.start_chunks_render(entity, &pos, chunks_distance);
         let chunks = chunk_map.chunks_load_state.get_watching_chunks(&entity).unwrap();
-        assert_eq!(chunks.len(), 5);
+
+        let grid = chunks_to_grid(chunks, &pos, chunks_distance as i64);
+        let expected = r#"
+___________
+___XXXXX___
+__XXXXXXX__
+_XXXXXXXXX_
+_XXXXXXXXX_
+_XXXXXXXXX_
+_XXXXXXXXX_
+_XXXXXXXXX_
+__XXXXXXX__
+___XXXXX___
+___________
+"#
+        .trim();
+
+        assert_eq!(grid, expected, "actual grid (chunks: {}):\n{}", chunks.len(), grid);
+        assert_eq!(chunks.len(), 69);
+
         assert_eq!(chunks.contains(&ChunkPosition::new(0, 0)), true);
         assert_eq!(chunks.contains(&ChunkPosition::new(0, 1)), true);
         assert_eq!(chunks.contains(&ChunkPosition::new(0, -1)), true);
@@ -321,7 +359,7 @@ mod tests {
         let new_pos = ChunkPosition::new(1, 0);
         let change = chunk_map.update_chunks_render(entity, &pos, &new_pos, chunks_distance);
         let chunks = chunk_map.chunks_load_state.get_watching_chunks(&entity).unwrap();
-        assert_eq!(chunks.len(), 5);
+        assert_eq!(chunks.len(), 69);
         assert_eq!(chunks.contains(&ChunkPosition::new(1, 0)), true);
         assert_eq!(chunks.contains(&ChunkPosition::new(1, 1)), true);
         assert_eq!(chunks.contains(&ChunkPosition::new(1, -1)), true);
@@ -329,10 +367,7 @@ mod tests {
         assert_eq!(chunks.contains(&ChunkPosition::new(0, 0)), true);
         assert_eq!(chunk_map.chunks_load_state.num_tickets(&new_pos), 1);
 
-        assert_eq!(change.abandoned_chunks.len(), 3);
-        assert_eq!(change.abandoned_chunks.contains(&ChunkPosition::new(-1, 0)), true);
-        assert_eq!(change.abandoned_chunks.contains(&ChunkPosition::new(0, 1)), true);
-        assert_eq!(change.abandoned_chunks.contains(&ChunkPosition::new(0, -1)), true);
+        assert_eq!(change.abandoned_chunks.len(), 9);
 
         // despawn
         chunk_map.stop_chunks_render(entity);

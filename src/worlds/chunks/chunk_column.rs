@@ -47,7 +47,7 @@ impl ChunkColumn {
     pub fn set_sections(&mut self, chunk_data: ChunkData) {
         assert!(
             chunk_data.len() > 0,
-            "load_chunk: chunk must contain at least one section"
+            "SET_SECTIONS chunk must contain at least one section"
         );
         self.sections = chunk_data;
         self.loaded = true;
