@@ -77,20 +77,25 @@ impl ClientInfo {
 
 #[derive(Clone, Component)]
 pub struct ClientNetwork {
+    /// Low-level network connection to the client.
+    /// Owns transport, reliability, ordering and client id.
     connection: NetworkServerConnection,
 
+    /// Client-provided metadata (login, version, platform, etc).
+    /// Filled once after handshake, read frequently.
     client_info: Arc<RwLock<Option<ClientInfo>>>,
 
-    // For fast finding player current world slug
+    /// World the player is currently attached to and the corresponding ECS entity.
+    /// Used as a fast lookup to route world-specific messages.
     world_entity: Arc<RwLock<Option<WorldEntity>>>,
 
-    // Current chunks that player can see
-    // Tp prevent resend chunks
-    already_sended: Arc<RwLock<Vec<ChunkPosition>>>,
-
-    // Chunks was sended by network
-    // but not yet recieved by the player
+    /// Chunks that have been sent over the network but are not yet acknowledged by the client.
     send_chunk_queue: Arc<RwLock<Vec<ChunkPosition>>>,
+
+    /// Chunks that the server considers fully present on the client.
+    /// A chunk is added here only after it has been sent and acknowledged!
+    /// Used to prevent re-sending already loaded chunks and to determine unloads.
+    confirmed_chunks: Arc<RwLock<Vec<ChunkPosition>>>,
 }
 
 impl ClientNetwork {
@@ -99,8 +104,9 @@ impl ClientNetwork {
             connection,
             client_info: Default::default(),
             world_entity: Default::default(),
-            already_sended: Default::default(),
+
             send_chunk_queue: Default::default(),
+            confirmed_chunks: Default::default(),
         }
     }
 
@@ -121,7 +127,7 @@ impl ClientNetwork {
             Some(c) => Some(c),
             None => None,
         })
-        .ok()
+            .ok()
     }
 
     pub fn set_client_info(&self, info: ClientInfo) {
@@ -157,7 +163,7 @@ impl ClientNetwork {
     }
 
     pub fn is_already_sended(&self, chunk_position: &ChunkPosition) -> bool {
-        self.already_sended.read().contains(chunk_position) || self.send_chunk_queue.read().contains(chunk_position)
+        self.confirmed_chunks.read().contains(chunk_position) || self.send_chunk_queue.read().contains(chunk_position)
     }
 
     /// If too many chunks currently was sended and waiting
@@ -166,31 +172,51 @@ impl ClientNetwork {
         self.send_chunk_queue.read().len() >= SEND_CHUNK_QUEUE_LIMIT
     }
 
-    pub fn send_chunk_to_queue(&self, chunk_position: &ChunkPosition) {
-        self.send_chunk_queue.write().push(chunk_position.clone());
-    }
-
     /// Called when the player has sent a confirmation of receiving chunk data
     pub fn mark_chunks_as_recieved(&self, chunk_positions: Vec<ChunkPosition>) {
-        let mut send_chunk_queue = self.send_chunk_queue.write();
-        for chunk_position in chunk_positions {
-            vec_remove_item(&mut *send_chunk_queue, &chunk_position);
+        {
+            let mut confirmed_chunks = self.confirmed_chunks.write();
+            let mut send_chunk_queue = self.send_chunk_queue.write();
+
+            for chunk_position in chunk_positions {
+                if vec_remove_item(&mut *send_chunk_queue, &chunk_position) {
+                    confirmed_chunks.push(chunk_position);
+                }
+            }
         }
+        self.debug_check_chunk_state();
     }
 
     /// Send chunk which was just loaded
-    pub fn send_loaded_chunk(&self, chunk_position: &ChunkPosition, message: ServerMessages) {
-        if self.already_sended.read().contains(&chunk_position) {
+    pub fn send_chunk(&self, chunk_position: &ChunkPosition, message: ServerMessages) {
+        if self.send_chunk_queue.read().contains(&chunk_position) {
             panic!("Tried to send already sended chunk! {}", chunk_position);
         }
         self.send_message(NetworkMessageType::WorldInfo, &message);
 
-        // Watch chunk
-        self.already_sended.write().push(chunk_position.clone());
+        self.send_chunk_queue.write().push(chunk_position.clone());
+        self.debug_check_chunk_state();
     }
 
-    /// Send chunks to unload
-    pub fn send_unload_chunks(&self, world_slug: &String, mut abandoned_chunks: Vec<ChunkPosition>) {
+    /// Verifies internal chunk send state invariants for a client.
+    #[inline(always)]
+    pub fn debug_check_chunk_state(&self) {
+        #[cfg(debug_assertions)]
+        {
+            let already = self.confirmed_chunks.read();
+            let queue = self.send_chunk_queue.read();
+
+            for chunk in already.iter() {
+                debug_assert!(
+                    !queue.contains(chunk),
+                    "chunk state corruption: {:?} exists in confirmed_chunks and send_chunk_queue",
+                    chunk
+                );
+            }
+        }
+    }
+
+    pub fn send_chunks_to_unload(&self, world_slug: &String, mut abandoned_chunks: Vec<ChunkPosition>) {
         if abandoned_chunks.len() == 0 {
             return;
         }
@@ -200,16 +226,21 @@ impl ClientNetwork {
         // Unwatch chunks
         // Send only those chunks, that was sended
         for chunk_position in abandoned_chunks.drain(..) {
-            let removed = vec_remove_item(&mut *self.already_sended.write(), &chunk_position);
+            let removed = vec_remove_item(&mut *self.confirmed_chunks.write(), &chunk_position);
             if removed {
                 unload_chunks.push(chunk_position);
             }
         }
+        if unload_chunks.is_empty() {
+            return;
+        }
+
         let input = ServerMessages::UnloadChunks {
             world_slug: world_slug.clone(),
             chunks: unload_chunks,
         };
         self.send_message(NetworkMessageType::ReliableOrdered, &input);
+        self.debug_check_chunk_state();
     }
 
     pub fn send_message(&self, message_type: NetworkMessageType, message: &ServerMessages) {

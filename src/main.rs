@@ -1,19 +1,15 @@
-use std::time::Duration;
-
-use bevy::{prelude::TaskPoolPlugin, time::TimePlugin};
-use bevy_app::{App, ScheduleRunnerPlugin};
-
-use launch_settings::{get_log_level, LaunchSettings};
-use log::info;
-
+use crate::console::ConsolePlugin;
 use crate::{
     logger::CONSOLE_LOGGER,
     network::{runtime_plugin::RuntimePlugin, server::NetworkPlugin},
 };
+use bevy::{prelude::TaskPoolPlugin, time::TimePlugin};
+use bevy_app::{App, ScheduleRunnerPlugin};
 use client_resources::ResourcesPlugin;
+use launch_settings::{get_log_level, LaunchSettings};
+use log::info;
+use std::time::Duration;
 use worlds::WorldsHandlerPlugin;
-
-use crate::console::ConsolePlugin;
 
 mod client_resources;
 mod console;
@@ -27,7 +23,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub const CHUNKS_DISTANCE: u16 = 12;
 pub const CHUNKS_DESPAWN_TIMER: Duration = Duration::from_secs(5);
-pub static SEND_CHUNK_QUEUE_LIMIT: usize = 16;
+pub static SEND_CHUNK_QUEUE_LIMIT: usize = 64;
 
 fn main() {
     log::set_logger(&CONSOLE_LOGGER).unwrap();

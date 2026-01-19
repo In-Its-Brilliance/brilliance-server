@@ -68,7 +68,7 @@ pub fn send_chunks(
 
     let elapsed = now.elapsed();
     #[cfg(debug_assertions)]
-    if elapsed >= std::time::Duration::from_millis(100) {
+    if elapsed >= std::time::Duration::from_millis(1000) {
         log::warn!(target: "network.chunks_sender", "&7send_chunks lag: {:.2?}", elapsed);
     }
 }
@@ -126,8 +126,7 @@ fn send_chunks_to_client(
             .get_network_chunk_bytes(&chunk_position)
             .expect("send_chunks: chunk bytes not found");
 
-        network_client.send_chunk_to_queue(&chunk_position);
-        network_client.send_loaded_chunk(&chunk_position, message);
+        network_client.send_chunk(&chunk_position, message);
         // log::info!(
         //     target: "network.chunks_sender",
         //     "SEND_LOADED_CHUNK {} chunk_position:{}",

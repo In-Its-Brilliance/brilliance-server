@@ -195,7 +195,7 @@ fn receive_message_system(
 
     let elapsed = now.elapsed();
     #[cfg(debug_assertions)]
-    if elapsed >= std::time::Duration::from_millis(100) {
+    if elapsed >= std::time::Duration::from_millis(1000) {
         log::warn!(target: "network.server", "&7receive_message_system lag: {:.2?}", elapsed);
     }
 }

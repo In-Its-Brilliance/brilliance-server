@@ -81,7 +81,7 @@ pub fn move_player(
         let entity_ref = ecs.get_entity(world_entity.get_entity()).unwrap();
 
         let network = entity_ref.get::<ClientNetwork>().unwrap();
-        network.send_unload_chunks(
+        network.send_chunks_to_unload(
             world_entity.get_world_slug(),
             change.abandoned_chunks.clone(),
         );
