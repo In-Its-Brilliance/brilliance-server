@@ -13,6 +13,7 @@ cargo test -- --nocapture
 - формирует только геометрический интерес (new / abandoned)
 - не знает и не учитывает сетевое состояние
 
+
 ## Отправка чанков клиенту `send_chunks`
 
 Работает ТОЛЬКО поверх `ChunksLoadState`
@@ -40,12 +41,17 @@ cargo test -- --nocapture
 - вызывается `ClientNetwork::mark_chunks_as_recieved`
 - чанк убирается из `send_chunk_queue` и добавляется в `confirmed_chunks`
 
+
 ## Сонхронизации перемещения `on_player_move`
 
 ### 1) По сети сообщение о перемещении игрока попадает в `on_player_move`
 - Происходит вызов `WorldManager::player_move`
 - Генерируется `ChunkMap::update_chunks_render` - `ChunkChanged`, где определяется из какого чанка куда передвинулся игрок
+- `ChunkChanged` передаётся в `sync_player_move`
+
+### 2) Выгрузка старых чанков
 - Вызывается `ClientNetwork::send_chunks_to_unload` для удаления чанков, ушедшах из поля зрения
+- Игроку отправляется сообщение `ServerMessages::UnloadChunks`
 
 ## Инварианты и переходы состояний чанка
 
