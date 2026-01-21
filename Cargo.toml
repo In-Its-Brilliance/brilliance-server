@@ -5,19 +5,13 @@ edition = "2021"
 publish = false
 
 [features]
-default = ["use-local"]
+default = []
 
 trace = []
 
-use-local = ["common-local", "network-local"]
-use-git = ["common-git", "network-git"]
-
 [dependencies]
-common-local = { path = "../brilliance-common", package = "brilliance-common", optional = true }
-common-git = { git = "https://github.com/In-Its-Brilliance/brilliance-common", optional = true }
-
-network-local = { path = "../brilliance-network", package = "brilliance-network", optional = true }
-network-git = { git = "https://github.com/In-Its-Brilliance/brilliance-network", optional = true }
+common = { git = "https://github.com/In-Its-Brilliance/brilliance-common" }
+network = { git = "https://github.com/In-Its-Brilliance/brilliance-network" }
 
 bevy = { version = "0.17", default-features = false }
 bevy_app = "0.17"
