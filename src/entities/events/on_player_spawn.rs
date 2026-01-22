@@ -19,7 +19,8 @@ pub(crate) fn on_player_spawn(
     mut connection_events: MessageReader<PlayerSpawnEvent>,
 ) {
     #[cfg(feature = "trace")]
-    let _span = bevy_utils::tracing::info_span!("sync_player_spawn").entered();
+    let _span = bevy_utils::tracing::info_span!("on_player_spawn.on_player_spawn").entered();
+    let _s = crate::span!("on_player_spawn.on_player_spawn");
 
     for event in connection_events.read() {
         let target_entity = event.world_entity.get_entity();

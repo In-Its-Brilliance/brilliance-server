@@ -6,6 +6,7 @@ use crate::{
 use bevy::{prelude::TaskPoolPlugin, time::TimePlugin};
 use bevy_app::{App, ScheduleRunnerPlugin};
 use client_resources::ResourcesPlugin;
+use debug::DebugPlugin;
 use launch_settings::{get_log_level, LaunchSettings};
 use log::info;
 use std::time::Duration;
@@ -13,6 +14,7 @@ use worlds::WorldsHandlerPlugin;
 
 mod client_resources;
 mod console;
+mod debug;
 mod entities;
 pub mod launch_settings;
 mod logger;
@@ -46,6 +48,7 @@ fn main() {
         ConsolePlugin::default(),
         ResourcesPlugin::default(),
         WorldsHandlerPlugin::default(),
+        DebugPlugin::default(),
     ));
     NetworkPlugin::build(&mut app);
     app.run();

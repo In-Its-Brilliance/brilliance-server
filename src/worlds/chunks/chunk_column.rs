@@ -107,7 +107,8 @@ pub(crate) fn load_chunk(
 ) {
     rayon::spawn(move || {
         #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("load_chunk").entered();
+        let _span = bevy_utils::tracing::info_span!("chunk_column.load_chunk").entered();
+        let _s = crate::span!("chunk_column.load_chunk");
 
         if RuntimePlugin::is_stopped() {
             return;

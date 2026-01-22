@@ -25,7 +25,9 @@ pub fn send_chunks(
     clients: Res<ClientsContainer>,
     network_container: Res<NetworkContainer>,
 ) {
-    let now = std::time::Instant::now();
+    #[cfg(feature = "trace")]
+    let _span = bevy_utils::tracing::info_span!("chunks_sender.send_chunks").entered();
+    let _s = crate::span!("chunks_sender.send_chunks");
 
     // iterate over all clients
     for (_client_id, network_client) in clients.iter() {
@@ -64,12 +66,6 @@ pub fn send_chunks(
         }
 
         send_chunks_to_client(&*world, &world_entity, network_client, player_watching_chunks);
-    }
-
-    let elapsed = now.elapsed();
-    #[cfg(debug_assertions)]
-    if elapsed >= std::time::Duration::from_millis(1000) {
-        log::warn!(target: "network.chunks_sender", "&7send_chunks lag: {:.2?}", elapsed);
     }
 }
 

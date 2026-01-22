@@ -72,7 +72,8 @@ pub fn sync_player_move(
     chunks_changed: &Option<ChunkChanged>,
 ) {
     #[cfg(feature = "trace")]
-    let _span = bevy_utils::tracing::info_span!("sync_player_move").entered();
+    let _span = bevy_utils::tracing::info_span!("sync_players.sync_player_move").entered();
+    let _s = crate::span!("sync_players.sync_player_move");
 
     let ecs = world_manager.get_ecs();
     let entity_ref = ecs.get_entity(target_entity).unwrap();

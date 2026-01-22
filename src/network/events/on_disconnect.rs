@@ -33,7 +33,7 @@ pub fn on_disconnect(
         if let Some(i) = event.client.get_client_info() {
             log::info!(
                 target: "network",
-                "Disconnected &a{} &7reason:&e{}",
+                "Disconnected &a{} &7reason: &e{}",
                 i.get_login(),
                 event.reason
             );

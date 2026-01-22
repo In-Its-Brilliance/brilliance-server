@@ -116,6 +116,27 @@ impl NetworkPlugin {
     }
 }
 
+#[cfg(debug_assertions)]
+fn span_name_for_client_message(msg: &ClientMessages) -> &'static str {
+    match msg {
+        ClientMessages::ConnectionInfo { .. } => "server.receive_message_system::ConnectionInfo",
+
+        ClientMessages::ConsoleInput { .. } => "server.receive_message_system::ConsoleInput",
+
+        ClientMessages::PlayerMove { .. } => "server.receive_message_system::PlayerMove",
+
+        ClientMessages::ChunkRecieved { .. } => "server.receive_message_system::ChunkRecieved",
+
+        ClientMessages::EditBlockRequest { .. } => "server.receive_message_system::EditBlockRequest",
+
+        ClientMessages::ResourcesHasCache { .. } => "server.receive_message_system::ResourcesHasCache",
+
+        ClientMessages::ResourcesLoaded { .. } => "server.receive_message_system::ResourcesLoaded",
+
+        ClientMessages::SettingsLoaded => "server.receive_message_system::SettingsLoaded",
+    }
+}
+
 fn receive_message_system(
     network_container: Res<NetworkContainer>,
     time: Res<Time>,
@@ -128,9 +149,8 @@ fn receive_message_system(
     mut settings_loaded_events: MessageWriter<PlayerSettingsLoadedEvent>,
 ) {
     #[cfg(feature = "trace")]
-    let _span = bevy_utils::tracing::info_span!("receive_message_system").entered();
-
-    let now = std::time::Instant::now();
+    let _span = bevy_utils::tracing::info_span!("server.receive_message_system").entered();
+    let _s = crate::span!("server.receive_message_system");
 
     let network = network_container.server_network.as_ref();
 
@@ -138,9 +158,12 @@ fn receive_message_system(
         std::thread::sleep(NO_CONNECTIONS_DELAY);
     }
 
-    network_container
-        .runtime
-        .block_on(async { network.step(time.delta()).await });
+    {
+        let _s = crate::span!("server.receive_message_system::network_step");
+        network_container
+            .runtime
+            .block_on(async { network.step(time.delta()).await });
+    }
 
     for message in network.drain_errors() {
         log::error!(target: "network", "Network error: {}", message);
@@ -148,6 +171,7 @@ fn receive_message_system(
 
     for (client_id, client) in clients.iter() {
         for decoded in client.get_connection().drain_client_messages() {
+            let _s = crate::span!(span_name_for_client_message(&decoded));
             match decoded {
                 ClientMessages::ResourcesHasCache { exists } => {
                     let event = ResourcesHasCacheEvent::new(client.clone(), exists);
@@ -191,12 +215,6 @@ fn receive_message_system(
                 }
             }
         }
-    }
-
-    let elapsed = now.elapsed();
-    #[cfg(debug_assertions)]
-    if elapsed >= std::time::Duration::from_millis(1000) {
-        log::warn!(target: "network.server", "&7receive_message_system lag: {:.2?}", elapsed);
     }
 }
 
