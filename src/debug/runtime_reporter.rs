@@ -8,7 +8,7 @@ pub(crate) const TPS_THRESHOLD: f32 = 55.0;
 
 macro_rules! lags_template {
     () => {
-        "&cLags detected! ({tps:.1} tps) Total: {duration:.1}ms:&r
+        "&cLags detected! ({tps:.1} tps) Total: {duration:?}&r
 {lines}"
     };
 }
@@ -51,7 +51,7 @@ impl RuntimeReporter {
         let msg = format!(
             lags_template!(),
             tps = tps,
-            duration = duration.as_secs_f64() * 1000.0,
+            duration = duration,
             lines = lines,
         );
 
