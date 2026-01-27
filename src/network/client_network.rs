@@ -247,7 +247,7 @@ impl ClientNetwork {
         self.connection.send_message(message_type, message);
     }
 
-    pub fn send_disconnect(&mut self, message: Option<String>) {
+    pub fn disconnect(&self, message: Option<String>) {
         let msg = ServerMessages::Disconnect { message };
         self.connection
             .send_message(NetworkMessageType::ReliableUnordered, &msg);

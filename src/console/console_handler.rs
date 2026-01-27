@@ -64,7 +64,7 @@ impl ConsoleHandler {
         if console_history_path.exists() {
             let _ = match rl.load_history(&console_history_path) {
                 Ok(_) => {
-                    log::info!(target: "console", "Console file history loaded from &e\"{}\"", console_history_path.display())
+                    log::debug!(target: "console", "Console file history loaded from &e\"{}\"", console_history_path.display())
                 }
                 Err(e) => {
                     log::error!(target: "console", "Console history &e\"{}\"&r error: &c{}", console_history_path.display(), e)
@@ -85,7 +85,7 @@ impl ConsoleHandler {
                 Err(ReadlineError::Interrupted) => {
                     let _ = match rl.save_history(&console_history_path) {
                         Ok(_) => {
-                            log::info!(target: "console", "Console file history saved in &e\"{}\"", console_history_path.display())
+                            log::debug!(target: "console", "Console file history saved in &e\"{}\"", console_history_path.display())
                         }
                         Err(e) => {
                             log::error!(target: "console", "Console file &e\"{}\"&r history save error: &c{}", console_history_path.display(), e)

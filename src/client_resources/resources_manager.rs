@@ -149,7 +149,7 @@ impl ResourceManager {
 
             log::info!(
                 target: "resources",
-                "□ Resource &2\"{}\"&r loaded;&7 Title:\"{}\" v\"{}\" Author:\"{}\" Scripts:{} Media:{} Blocks:{}",
+                " □ Resource &2\"{}\"&r loaded;&7 Title:&8\"{}\" &7v:&8\"{}\" &7Author:&8\"{}\" &7Scripts:&8{} &7Media:&8{} &7Blocks:&8{}",
                 resource_instance.get_slug(),
                 resource_instance.get_title(),
                 resource_instance.get_version(),

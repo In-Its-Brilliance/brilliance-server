@@ -32,8 +32,8 @@ impl ClientsContainer {
     }
 
     pub fn disconnect_all(&mut self, message: Option<String>) {
-        for (_client_id, mut client) in self.players.drain() {
-            client.send_disconnect(message.clone());
+        for (_client_id, client) in self.players.drain() {
+            client.disconnect(message.clone());
         }
     }
 

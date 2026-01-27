@@ -7,6 +7,7 @@ use network::messages::{NetworkMessageType, ServerMessages};
 use crate::client_resources::resources_manager::ResourceManager;
 use crate::network::client_network::ClientInfo;
 use crate::network::client_network::ClientNetwork;
+use crate::network::clients_container::ClientsContainer;
 use crate::network::events::on_media_loaded::PlayerMediaLoadedEvent;
 
 #[derive(Message)]
@@ -40,14 +41,29 @@ pub fn on_connection_info(
     mut connection_info_events: MessageReader<PlayerConnectionInfoEvent>,
     resources_manager: Res<ResourceManager>,
     mut player_media_loaded_events: MessageWriter<PlayerMediaLoadedEvent>,
+    clients: Res<ClientsContainer>,
 ) {
     for event in connection_info_events.read() {
-        event.client.set_client_info(ClientInfo::new(&event));
 
-        let client_info = event.client.get_client_info().unwrap();
+        for (client_id, client) in clients.iter() {
+            if *client_id != event.client.get_client_id() {
+                if let Some(client_info) = client.get_client_info() {
+                    if *client_info.get_login() == event.login {
+                        // This login already connected
+                        let message = "This account is already logged in from another session.";
+                        event.client.disconnect(Some(message.to_string()));
+                        return;
+                    }
+                }
+            }
+        }
+
+        let client_info = ClientInfo::new(&event);
+        event.client.set_client_info(client_info.clone());
+
         log::info!(
             target: "network",
-            "Connected &a{} &7ip:&e{} &7id:&e{}&r &7version:&e{}",
+            "✱ Connected &a{} &7ip: &e{} &7id: &8{}&r &7version: &8{}",
             client_info.get_login(),
             event.client.get_client_ip(),
             event.client.get_client_id(),
@@ -61,9 +77,7 @@ pub fn on_connection_info(
                 list: resources_manager.get_resources_scheme().clone(),
                 archive_hash: resources_manager.get_archive_hash().clone(),
             };
-            event
-                .client
-                .send_message(NetworkMessageType::ReliableOrdered, &scheme);
+            event.client.send_message(NetworkMessageType::ReliableOrdered, &scheme);
         } else {
             // Or send player as loaded
 

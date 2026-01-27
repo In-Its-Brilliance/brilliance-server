@@ -6,9 +6,9 @@ use crate::{
 use bevy::{prelude::TaskPoolPlugin, time::TimePlugin};
 use bevy_app::{App, ScheduleRunnerPlugin};
 use client_resources::ResourcesPlugin;
+use common::utils::print_logo;
 use debug::DebugPlugin;
 use launch_settings::{get_log_level, LaunchSettings};
-use log::info;
 use std::time::Duration;
 use worlds::WorldsHandlerPlugin;
 
@@ -29,14 +29,13 @@ pub static SEND_CHUNK_QUEUE_LIMIT: usize = 64;
 
 fn main() {
     log::set_logger(&CONSOLE_LOGGER).unwrap();
-
     let server_settings = LaunchSettings::new();
-
     let log_level = get_log_level(&server_settings.get_args().logs);
     log::set_max_level(log_level.clone());
-    info!(target: "main", "Log level using: {}", log_level);
 
-    info!(target: "main", "Brilliance Server version &d{}", VERSION);
+    print_logo(VERSION);
+    log::debug!(target: "main", "Log level using: {}", log_level);
+    log::info!(target: "main", "In Its Brilliance Server version &d{}", VERSION);
 
     let mut app = App::new();
     app.insert_resource(server_settings);
