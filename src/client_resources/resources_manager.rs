@@ -7,7 +7,7 @@ use common::default_resources::DEFAULT_RESOURCES;
 use common::utils::calculate_hash;
 use common::utils::split_resource_path;
 use network::messages::ResurceScheme;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
@@ -23,7 +23,7 @@ pub const ARCHIVE_CHUNK_SIZE: usize = 1024 * 1024;
 
 #[derive(Resource, Default)]
 pub struct ResourceManager {
-    resources: HashMap<String, ResourceInstance>,
+    resources: BTreeMap<String, ResourceInstance>,
 
     archive_data: Option<Vec<u8>>,
     archive_hash: Option<u64>,
@@ -261,12 +261,14 @@ impl ResourceManager {
         }
         writer.finish().unwrap();
 
-        self.archive_hash = Some(calculate_hash(&archive_data));
+        let calculated_hash = calculate_hash(&archive_data);
+        self.archive_hash = Some(calculated_hash.clone());
         self.archive_data = Some(archive_data);
 
         let parts_count = self.get_archive_parts_count(ARCHIVE_CHUNK_SIZE);
-        log::info!(target: "resources", "Resources archive generated; archive parts count: {}", parts_count);
+        log::info!(target: "resources", "Resources archive generated; archive parts: &e{}&r calculated hash: &e{}", parts_count, calculated_hash);
     }
+
     pub fn get_archive_len(&self) -> usize {
         self.archive_data.as_ref().unwrap().len()
     }

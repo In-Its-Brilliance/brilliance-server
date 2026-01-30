@@ -5,10 +5,7 @@ use bevy_ecs::{
 
 use crate::{
     entities::skin::EntitySkinComponent,
-    network::{
-        client_network::ClientNetwork, clients_container::ClientsContainer,
-        sync_entities::sync_entity_despawn,
-    },
+    network::{client_network::ClientNetwork, clients_container::ClientsContainer, sync_entities::sync_entity_despawn},
     worlds::worlds_manager::WorldsManager,
 };
 
@@ -33,9 +30,9 @@ pub fn on_disconnect(
         if let Some(i) = event.client.get_client_info() {
             log::info!(
                 target: "network",
-                "✗ Disconnected &a{} &7reason: &e{}",
-                i.get_login(),
-                event.reason
+                "&c✗ {login}&r disconnected &7reason: &e{reason}",
+                login = i.get_login(),
+                reason = event.reason,
             );
         }
 
@@ -43,9 +40,7 @@ pub fn on_disconnect(
         let world_entity = event.client.get_world_entity();
         match world_entity {
             Some(c) => {
-                let mut world_manager = worlds_manager
-                    .get_world_manager_mut(&c.get_world_slug())
-                    .unwrap();
+                let mut world_manager = worlds_manager.get_world_manager_mut(&c.get_world_slug()).unwrap();
 
                 let ecs = world_manager.get_ecs();
                 let entity_ref = ecs.get_entity(c.get_entity()).unwrap();

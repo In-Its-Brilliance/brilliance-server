@@ -2,20 +2,20 @@ use bevy::prelude::{Component, Entity};
 use common::{chunks::chunk_position::ChunkPosition, utils::vec_remove_item};
 use core::fmt;
 use network::{
-    NetworkServerConnection,
     messages::{NetworkMessageType, ServerMessages},
     server::IServerConnection,
+    NetworkServerConnection,
 };
-use parking_lot::{RwLock, RwLockReadGuard, lock_api::MappedRwLockReadGuard};
+use parking_lot::{lock_api::MappedRwLockReadGuard, RwLock, RwLockReadGuard};
 use std::{any::Any, fmt::Display, sync::Arc};
 
 use crate::{
-    SEND_CHUNK_QUEUE_LIMIT,
     console::console_sender::{ConsoleSender, ConsoleSenderType},
     entities::{
-        EntityComponent,
         entity::{Position, Rotation},
+        EntityComponent,
     },
+    SEND_CHUNK_QUEUE_LIMIT,
 };
 
 use super::{events::on_connection_info::PlayerConnectionInfoEvent, server::NetworkPlugin};
@@ -127,7 +127,7 @@ impl ClientNetwork {
             Some(c) => Some(c),
             None => None,
         })
-            .ok()
+        .ok()
     }
 
     pub fn set_client_info(&self, info: ClientInfo) {

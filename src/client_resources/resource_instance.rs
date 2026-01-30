@@ -1,7 +1,7 @@
 use common::blocks::block_type::{BlockContent, BlockType, BlockTypeManifest};
 use serde::{Deserialize, Serialize};
-use std::collections::hash_map::Iter;
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::BTreeMap;
+use std::path::PathBuf;
 
 const ALLOWED_FILES_EXT: &'static [&'static str] = &[".png", ".glb"];
 
@@ -23,8 +23,8 @@ pub struct ResourceInstance {
     title: String,
     autor: Option<String>,
     version: Option<String>,
-    scripts: HashMap<String, String>,
-    pub(crate) media: HashMap<String, Vec<u8>>,
+    scripts: BTreeMap<String, String>,
+    pub(crate) media: BTreeMap<String, Vec<u8>>,
 
     blocks: Vec<BlockType>,
 }
@@ -64,11 +64,11 @@ impl ResourceInstance {
         self.media.contains_key(slug)
     }
 
-    pub fn iter_scripts(&self) -> Iter<'_, String, String> {
+    pub fn iter_scripts(&self) -> std::collections::btree_map::Iter<'_, String, String> {
         self.scripts.iter()
     }
 
-    pub fn iter_media(&self) -> Iter<'_, String, Vec<u8>> {
+    pub fn iter_media(&self) -> std::collections::btree_map::Iter<'_, String, Vec<u8>> {
         self.media.iter()
     }
 
@@ -116,8 +116,8 @@ impl ResourceInstance {
             title: title,
             autor: manifest.autor.clone(),
             version: manifest.version.clone(),
-            scripts: HashMap::new(),
-            media: HashMap::new(),
+            scripts: Default::default(),
+            media: Default::default(),
             blocks: Default::default(),
         };
 

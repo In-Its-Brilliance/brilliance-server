@@ -63,11 +63,11 @@ pub fn on_connection_info(
 
         log::info!(
             target: "network",
-            "✱ Connected &a{} &7ip: &e{} &7id: &8{}&r &7version: &8{}",
-            client_info.get_login(),
-            event.client.get_client_ip(),
-            event.client.get_client_id(),
-            client_info.get_version(),
+            "&a✱ {login}&r connected &7ip: &e{ip} &7id: &8{id}&r &7version: &8{version}",
+            login = client_info.get_login(),
+            ip = event.client.get_client_ip(),
+            id = event.client.get_client_id(),
+            version = client_info.get_version(),
         );
 
         if resources_manager.has_any_resources() {

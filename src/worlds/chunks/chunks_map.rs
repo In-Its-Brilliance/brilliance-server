@@ -1,8 +1,4 @@
-use crate::{
-    network::runtime_plugin::RuntimePlugin,
-    worlds::{chunks::chunk_column::load_chunk, world_manager::ChunkChanged},
-    CHUNKS_DESPAWN_TIMER,
-};
+use crate::{network::runtime_plugin::RuntimePlugin, worlds::world_manager::ChunkChanged, CHUNKS_DESPAWN_TIMER};
 use ahash::AHashMap;
 use bevy::prelude::Entity;
 use common::{
@@ -240,6 +236,7 @@ impl ChunkMap {
                 log::trace!(target: "chunks", "Send chunk {} to load", chunk_position);
                 #[cfg(not(test))]
                 {
+                    use crate::worlds::chunks::chunk_column::load_chunk;
                     load_chunk(
                         self.world_generator.clone(),
                         self.storage.clone(),
