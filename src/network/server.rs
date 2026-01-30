@@ -8,13 +8,16 @@ use super::events::{
     on_resources_has_cache::{on_resources_has_cache, ResourcesHasCacheEvent},
     on_settings_loaded::{on_settings_loaded, PlayerSettingsLoadedEvent},
 };
-use crate::entities::entity::{IntoServerPosition, IntoServerRotation};
-use crate::entities::events::on_player_spawn::on_player_spawn;
 use crate::network::chunks_sender::send_chunks;
 use crate::network::client_network::ClientNetwork;
 use crate::network::clients_container::ClientsContainer;
 use crate::network::sync_players::PlayerSpawnEvent;
+use crate::{console::commands_executer::CommandExecuter, entities::events::on_player_spawn::on_player_spawn};
 use crate::{console::commands_executer::CommandsHandler, LaunchSettings};
+use crate::{
+    entities::entity::{IntoServerPosition, IntoServerRotation},
+    network::console_commands::{command_kick, command_parser_kick},
+};
 use bevy::time::{common_conditions::on_timer, Time};
 use bevy_app::{App, Update};
 use bevy_ecs::resource::Resource;
@@ -67,6 +70,9 @@ impl NetworkPlugin {
         let ip_port = format!("{}:{}", server_settings.get_args().ip, server_settings.get_args().port);
 
         log::info!(target: "network", "Starting server on &6{}", ip_port);
+
+        let mut commands_handler = app.world_mut().get_resource_mut::<CommandsHandler>().unwrap();
+        commands_handler.add_command_executer(CommandExecuter::new(command_parser_kick(), command_kick));
 
         app.insert_resource(NetworkContainer::new(ip_port));
         app.insert_resource(ClientsContainer::default());

@@ -248,6 +248,9 @@ impl ClientNetwork {
     }
 
     pub fn disconnect(&self, message: Option<String>) {
+        let mut client_info = self.client_info.write();
+        *client_info = None;
+
         let msg = ServerMessages::Disconnect { message };
         self.connection
             .send_message(NetworkMessageType::ReliableUnordered, &msg);
@@ -269,7 +272,15 @@ impl ConsoleSender for ClientNetwork {
     fn send_console_message(&self, message: String) {
         NetworkPlugin::send_console_output(&self, message);
     }
+
+    fn get_name(&self) -> String {
+        match self.get_client_info() {
+            Some(i) => i.get_login().clone(),
+            None => "-".to_string(),
+        }
+    }
 }
+
 impl ConsoleSenderType for ClientNetwork {
     fn as_any(&self) -> &dyn Any {
         self

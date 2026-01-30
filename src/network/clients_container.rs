@@ -40,4 +40,22 @@ impl ClientsContainer {
     pub fn get(&self, key: &u64) -> Option<&ClientNetwork> {
         self.players.get(key)
     }
+
+    pub fn get_by_login(&self, login: &String) -> Option<&ClientNetwork> {
+        let mut client_id: Option<u64> = None;
+
+        for (_client_id, client) in self.players.iter() {
+            let Some(info) = client.get_client_info() else {
+                continue;
+            };
+            if info.get_login() == login {
+                client_id = Some(_client_id.clone());
+                break;
+            }
+        }
+        let Some(client_id) = client_id else {
+            return None;
+        };
+        self.players.get(&client_id)
+    }
 }

@@ -2,6 +2,7 @@ use std::{fmt::{self, Display}, any::Any};
 
 pub trait ConsoleSender {
     fn send_console_message(&self, message: String);
+    fn get_name(&self) -> String;
 }
 
 pub trait ConsoleSenderType: ConsoleSender + Display {
@@ -21,7 +22,12 @@ impl ConsoleSender for Console {
     fn send_console_message(&self, message: String) {
         log::info!(target: "console" ,"{}", message)
     }
+
+    fn get_name(&self) -> String {
+        "console".to_string()
+    }
 }
+
 impl ConsoleSenderType for Console {
     fn as_any(&self) -> &dyn Any {
         self
