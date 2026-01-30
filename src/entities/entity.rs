@@ -77,6 +77,6 @@ pub trait IntoServerRotation {
 
 impl IntoServerRotation for NetworkRotation {
     fn to_server(&self) -> Rotation {
-        Rotation::new(self.yaw, self.pitch)
+        Rotation::new(self.pitch, self.yaw)
     }
 }
