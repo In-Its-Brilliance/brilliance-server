@@ -91,7 +91,7 @@ pub fn sync_player_move(
         if ids.len() > 0 {
             let msg = ServerMessages::StopStreamingEntities {
                 world_slug: world_manager.get_slug().clone(),
-                ids: Default::default(),
+                ids,
             };
             client.send_message(NetworkMessageType::ReliableOrdered, &msg);
         }
