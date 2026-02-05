@@ -25,6 +25,9 @@ impl PluginsManager {
     }
 
     pub fn rescan_plugins(&mut self, path: PathBuf, server_settings: &mut ServerSettings) -> Result<(), String> {
+        self.plugins.clear();
+        server_settings.clear_blocks();
+
         let mut resources_archive = ResourcesArchive::default();
         let path_str = path.into_os_string().into_string().unwrap();
         log::info!(target: "resources", "▼ Rescan plugins folders inside: &e{}", path_str);

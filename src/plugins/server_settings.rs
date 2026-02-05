@@ -98,6 +98,10 @@ impl ServerSettings {
         self.block_id_map.as_ref().expect("block_id_map is not set")
     }
 
+    pub fn clear_blocks(&mut self) {
+        self.blocks.clear()
+    }
+
     pub fn add_block(&mut self, block_type: BlockType) {
         self.blocks.push(block_type);
     }
