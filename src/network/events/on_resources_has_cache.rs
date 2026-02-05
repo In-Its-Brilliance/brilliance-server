@@ -6,7 +6,8 @@ use network::messages::{NetworkMessageType, ServerMessages};
 
 use crate::network::client_network::ClientNetwork;
 use crate::network::events::on_media_loaded::PlayerMediaLoadedEvent;
-use crate::plugins::plugin_manager::PluginManager;
+use crate::network::runtime_plugin::RuntimePlugin;
+use crate::plugins::plugins_manager::PluginsManager;
 use crate::plugins::resources_archive::ARCHIVE_CHUNK_SIZE;
 
 #[derive(Message)]
@@ -23,10 +24,14 @@ impl ResourcesHasCacheEvent {
 
 pub fn on_resources_has_cache(
     mut events: MessageReader<ResourcesHasCacheEvent>,
-    plugin_manager: Res<PluginManager>,
+    plugins_manager: Res<PluginsManager>,
     mut player_media_loaded_events: MessageWriter<PlayerMediaLoadedEvent>,
 ) {
-    let resources_archive = plugin_manager.get_resources_archive();
+    if RuntimePlugin::is_stopped() {
+        return;
+    }
+
+    let resources_archive = plugins_manager.get_resources_archive();
     for event in events.read() {
         if !event.exists {
             if resources_archive.has_any() {

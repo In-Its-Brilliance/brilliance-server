@@ -114,6 +114,10 @@ impl ConsoleHandler {
         for message in CONSOLE_OUTPUT_CHANNEL.1.drain() {
             println!("{}", message);
         }
+        let _ = std::process::Command::new("stty")
+            .arg("sane")
+            .stdin(std::process::Stdio::inherit())
+            .status();
     }
 
     pub fn send_message(message: String) {

@@ -1,6 +1,12 @@
 use common::blocks::block_type::{BlockContent, BlockType, BlockTypeManifest};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{
+    collections::BTreeMap,
+    fs,
+    path::{Path, PathBuf},
+};
+
+use crate::plugins::server_plugin::plugin_instance::PluginInstance;
 
 const ALLOWED_FILES_EXT: &'static [&'static str] = &[".png", ".glb"];
 
@@ -16,7 +22,7 @@ pub struct ResourceManifest {
     pub blocks: Option<Vec<BlockTypeManifest>>,
 }
 
-pub struct ServerPlugin {
+pub struct PluginContainer {
     slug: String,
     title: String,
     autor: Option<String>,
@@ -25,9 +31,11 @@ pub struct ServerPlugin {
     pub(crate) media: BTreeMap<String, Vec<u8>>,
 
     blocks: Vec<BlockType>,
+
+    plugin: Option<PluginInstance>,
 }
 
-impl ServerPlugin {
+impl PluginContainer {
     pub fn get_slug(&self) -> &String {
         &self.slug
     }
@@ -51,6 +59,26 @@ impl ServerPlugin {
     }
     pub fn get_media_count(&self) -> usize {
         self.media.len()
+    }
+
+    pub fn find_plugin_wasm(plugin_dir: &Path) -> Result<Option<PathBuf>, String> {
+        let entries =
+            fs::read_dir(plugin_dir).map_err(|e| format!("cannot read dir \"{}\": {}", plugin_dir.display(), e))?;
+
+        let mut wasm_file: Option<PathBuf> = None;
+
+        for entry in entries {
+            let path = entry.map_err(|e| format!("read entry error: {}", e))?.path();
+
+            if path.extension().and_then(|e| e.to_str()) == Some("wasm") {
+                if wasm_file.is_some() {
+                    return Err(format!("plugin \"{}\" has multiple .wasm files", plugin_dir.display()));
+                }
+                wasm_file = Some(path);
+            }
+        }
+
+        Ok(wasm_file)
     }
 
     pub fn from_manifest(resource_path: PathBuf) -> Result<Self, String> {
@@ -87,7 +115,19 @@ impl ServerPlugin {
             scripts: Default::default(),
             media: Default::default(),
             blocks: Default::default(),
+            plugin: Default::default(),
         };
+
+        if let Some(wasm_path) = Self::find_plugin_wasm(&resource_path)? {
+            let mut plugin_wasm = match PluginInstance::new(&wasm_path) {
+                Ok(w) => w,
+                Err(e) => return Err(format!("WASM plugin {:?}\n&4Error: &c{}", wasm_path.display(), e)),
+            };
+            if let Err(e) = plugin_wasm.call_on_enable() {
+                return Err(format!("WASM plugin {:?}\nOn enable error: &c{}", wasm_path.display(), e));
+            }
+            inst.plugin = Some(plugin_wasm);
+        }
 
         let manifest_blocks = match manifest.blocks {
             Some(b) => b,

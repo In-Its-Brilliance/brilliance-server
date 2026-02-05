@@ -2,22 +2,26 @@ use bevy_ecs::{
     resource::Resource,
     system::{Res, ResMut},
 };
-use common::{blocks::block_type::{BlockContent, BlockType}, default_resources::DEFAULT_RESOURCES, utils::{calculate_hash, split_resource_path}};
+use common::{
+    blocks::block_type::{BlockContent, BlockType},
+    default_resources::DEFAULT_RESOURCES,
+    utils::{calculate_hash, split_resource_path},
+};
 use network::messages::ResurceScheme;
 use std::{collections::BTreeMap, fs, path::PathBuf};
 
-use super::{plugin_instance::ServerPlugin, resources_archive::ResourcesArchive, server_settings::ServerSettings};
+use super::{plugin_container::PluginContainer, resources_archive::ResourcesArchive, server_settings::ServerSettings};
 use crate::{launch_settings::LaunchSettings, network::runtime_plugin::RuntimePlugin};
 
 #[derive(Resource, Default)]
-pub struct PluginManager {
-    plugins: BTreeMap<String, ServerPlugin>,
+pub struct PluginsManager {
+    plugins: BTreeMap<String, PluginContainer>,
     resources_archive: Option<ResourcesArchive>,
 }
 
-impl PluginManager {
+impl PluginsManager {
     pub fn get_resources_archive(&self) -> &ResourcesArchive {
-        &self.resources_archive.as_ref().expect("resources_archive is not set")
+        &self.resources_archive.as_ref().expect("GET_RESOURCES_ARCHIVE: resources_archive is not set")
     }
 
     pub fn rescan_plugins(&mut self, path: PathBuf, server_settings: &mut ServerSettings) -> Result<(), String> {
@@ -41,10 +45,10 @@ impl PluginManager {
                 continue;
             }
 
-            let plugin = match ServerPlugin::from_manifest(resource_path.clone()) {
+            let plugin = match PluginContainer::from_manifest(resource_path.clone()) {
                 Ok(i) => i,
                 Err(e) => {
-                    return Err(format!("resource {}: {}", resource_path.display().to_string(), e));
+                    return Err(format!("Resource &e{}: \n&c{}", resource_path.display().to_string(), e));
                 }
             };
             let resource_slug = plugin.get_slug().clone();
@@ -78,7 +82,7 @@ impl PluginManager {
                 slug: plugin.get_slug().clone(),
                 scripts: Default::default(),
                 media: Default::default(),
-            };            
+            };
             for (script_slug, scripts_data) in plugin.iter_scripts() {
                 let hash = calculate_hash(&scripts_data);
                 resources_archive.add_entry(hash.to_string(), scripts_data.as_bytes().to_vec());
@@ -193,17 +197,17 @@ impl PluginManager {
         Ok(())
     }
 
-    pub fn add_plugin(&mut self, slug: String, plugin: ServerPlugin) {
+    pub fn add_plugin(&mut self, slug: String, plugin: PluginContainer) {
         self.plugins.insert(slug, plugin);
     }
 }
 
 pub(crate) fn rescan_plugins(
-    mut resource_manager: ResMut<PluginManager>,
+    mut plugins_manager: ResMut<PluginsManager>,
     launch_settings: Res<LaunchSettings>,
     mut server_settings: ResMut<ServerSettings>,
 ) {
-    if let Err(e) = resource_manager.rescan_plugins(launch_settings.get_plugins_path(), &mut *server_settings) {
+    if let Err(e) = plugins_manager.rescan_plugins(launch_settings.get_plugins_path(), &mut *server_settings) {
         log::error!(target: "resources", "&cPlugins loading error:");
         log::error!(target: "resources", "{}", e);
         RuntimePlugin::stop();

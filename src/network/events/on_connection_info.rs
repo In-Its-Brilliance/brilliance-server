@@ -8,7 +8,8 @@ use crate::network::client_network::ClientInfo;
 use crate::network::client_network::ClientNetwork;
 use crate::network::clients_container::ClientsContainer;
 use crate::network::events::on_media_loaded::PlayerMediaLoadedEvent;
-use crate::plugins::plugin_manager::PluginManager;
+use crate::network::runtime_plugin::RuntimePlugin;
+use crate::plugins::plugins_manager::PluginsManager;
 
 #[derive(Message)]
 pub struct PlayerConnectionInfoEvent {
@@ -39,10 +40,14 @@ impl PlayerConnectionInfoEvent {
 
 pub fn on_connection_info(
     mut connection_info_events: MessageReader<PlayerConnectionInfoEvent>,
-    plugin_manager: Res<PluginManager>,
+    plugins_manager: Res<PluginsManager>,
     mut player_media_loaded_events: MessageWriter<PlayerMediaLoadedEvent>,
     clients: Res<ClientsContainer>,
 ) {
+    if RuntimePlugin::is_stopped() {
+        return;
+    }
+
     for event in connection_info_events.read() {
 
         for (client_id, client) in clients.iter() {
@@ -70,7 +75,7 @@ pub fn on_connection_info(
             version = client_info.get_version(),
         );
 
-        let resources_archive = plugin_manager.get_resources_archive();
+        let resources_archive = plugins_manager.get_resources_archive();
         if resources_archive.has_any() {
             // Sending resources schema if necessary
 

@@ -3,8 +3,8 @@ use bevy_ecs::message::{Message, MessageReader};
 use network::messages::{NetworkMessageType, ServerMessages};
 
 use crate::{
-    network::client_network::ClientNetwork,
-    plugins::{plugin_manager::PluginManager, resources_archive::ARCHIVE_CHUNK_SIZE, server_settings::ServerSettings},
+    network::{client_network::ClientNetwork, runtime_plugin::RuntimePlugin},
+    plugins::{plugins_manager::PluginsManager, resources_archive::ARCHIVE_CHUNK_SIZE, server_settings::ServerSettings},
 };
 
 #[derive(Message)]
@@ -25,9 +25,13 @@ impl PlayerMediaLoadedEvent {
 pub fn on_media_loaded(
     mut events: MessageReader<PlayerMediaLoadedEvent>,
     server_settings: Res<ServerSettings>,
-    plugin_manager: Res<PluginManager>,
+    plugins_manager: Res<PluginsManager>,
 ) {
-    let resources_archive = plugin_manager.get_resources_archive();
+    if RuntimePlugin::is_stopped() {
+        return;
+    }
+
+    let resources_archive = plugins_manager.get_resources_archive();
     for event in events.read() {
         match event.last_index {
             Some(index) => {
