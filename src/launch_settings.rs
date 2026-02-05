@@ -55,12 +55,12 @@ impl LaunchSettings {
         &self.args
     }
 
-    pub fn get_resources_path(&self) -> PathBuf {
+    pub fn get_plugins_path(&self) -> PathBuf {
         match self.args.resources_path.as_ref() {
             Some(p) => PathBuf::from(shellexpand::tilde(p).to_string()),
             None => {
                 let mut path = env::current_dir().unwrap().clone();
-                path.push("resources");
+                path.push("plugins");
                 path
             }
         }

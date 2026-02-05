@@ -5,20 +5,20 @@ use crate::{
 };
 use bevy::{prelude::TaskPoolPlugin, time::TimePlugin};
 use bevy_app::{App, ScheduleRunnerPlugin};
-use client_resources::ResourcesPlugin;
 use common::utils::print_logo;
 use debug::DebugPlugin;
 use launch_settings::{get_log_level, LaunchSettings};
+use plugins::PluginApp;
 use std::time::Duration;
 use worlds::WorldsHandlerPlugin;
 
-mod client_resources;
 mod console;
 mod debug;
 mod entities;
 pub mod launch_settings;
 mod logger;
 mod network;
+mod plugins;
 mod worlds;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -44,8 +44,8 @@ fn main() {
         TaskPoolPlugin::default(),
         ScheduleRunnerPlugin::default(),
         RuntimePlugin::default(),
+        PluginApp::default(),
         ConsolePlugin::default(),
-        ResourcesPlugin::default(),
         WorldsHandlerPlugin::default(),
         DebugPlugin::default(),
     ));

@@ -4,8 +4,7 @@ pub mod commands;
 pub mod load_worlds;
 
 use crate::{
-    client_resources::server_settings::rescan_server_settings,
-    console::commands_executer::{CommandExecuter, CommandsHandler},
+    console::commands_executer::{CommandExecuter, CommandsHandler}, plugins::server_settings::rescan_server_settings,
 };
 
 use self::{

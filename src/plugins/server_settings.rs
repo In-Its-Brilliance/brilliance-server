@@ -1,4 +1,3 @@
-use super::resources_manager::ResourceManager;
 use crate::{launch_settings::LaunchSettings, network::runtime_plugin::RuntimePlugin};
 use bevy::prelude::{Res, ResMut, Resource};
 use common::{
@@ -46,7 +45,7 @@ impl ServerSettings {
         }
     }
 
-    fn load(&mut self, path: PathBuf, _resource_manager: &ResourceManager) -> Result<(), String> {
+    fn load(&mut self, path: PathBuf) -> Result<(), String> {
         log::info!(target: "settings", "Start loading server settings &e{}", path.display());
 
         if !path.exists() {
@@ -126,7 +125,6 @@ pub(crate) fn setup_default_blocks(
 pub(crate) fn rescan_server_settings(
     mut server_settings: ResMut<ServerSettings>,
     launch_settings: Res<LaunchSettings>,
-    resource_manager: Res<ResourceManager>,
 ) {
     if RuntimePlugin::is_stopped() {
         return;
@@ -142,7 +140,7 @@ pub(crate) fn rescan_server_settings(
 
     path.push("settings.yml");
 
-    if let Err(e) = server_settings.load(path, &*resource_manager) {
+    if let Err(e) = server_settings.load(path) {
         log::error!(target: "settings", "&cError loading server settings:");
         log::error!(target: "settings", "{}", e);
         RuntimePlugin::stop();

@@ -4,11 +4,11 @@ use bevy_ecs::message::MessageWriter;
 use bevy_ecs::system::Res;
 use network::messages::{NetworkMessageType, ServerMessages};
 
-use crate::client_resources::resources_manager::ResourceManager;
 use crate::network::client_network::ClientInfo;
 use crate::network::client_network::ClientNetwork;
 use crate::network::clients_container::ClientsContainer;
 use crate::network::events::on_media_loaded::PlayerMediaLoadedEvent;
+use crate::plugins::plugin_manager::PluginManager;
 
 #[derive(Message)]
 pub struct PlayerConnectionInfoEvent {
@@ -39,7 +39,7 @@ impl PlayerConnectionInfoEvent {
 
 pub fn on_connection_info(
     mut connection_info_events: MessageReader<PlayerConnectionInfoEvent>,
-    resources_manager: Res<ResourceManager>,
+    plugin_manager: Res<PluginManager>,
     mut player_media_loaded_events: MessageWriter<PlayerMediaLoadedEvent>,
     clients: Res<ClientsContainer>,
 ) {
@@ -70,12 +70,13 @@ pub fn on_connection_info(
             version = client_info.get_version(),
         );
 
-        if resources_manager.has_any_resources() {
+        let resources_archive = plugin_manager.get_resources_archive();
+        if resources_archive.has_any() {
             // Sending resources schema if necessary
 
             let scheme = ServerMessages::ResourcesScheme {
-                list: resources_manager.get_resources_scheme().clone(),
-                archive_hash: resources_manager.get_archive_hash().clone(),
+                list: resources_archive.get_resources_scheme().clone(),
+                archive_hash: resources_archive.get_archive_hash().clone(),
             };
             event.client.send_message(NetworkMessageType::ReliableOrdered, &scheme);
         } else {

@@ -1,7 +1,6 @@
 use common::blocks::block_type::{BlockContent, BlockType, BlockTypeManifest};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::{collections::BTreeMap, path::PathBuf};
 
 const ALLOWED_FILES_EXT: &'static [&'static str] = &[".png", ".glb"];
 
@@ -17,8 +16,7 @@ pub struct ResourceManifest {
     pub blocks: Option<Vec<BlockTypeManifest>>,
 }
 
-/// scripts: short_path, code
-pub struct ResourceInstance {
+pub struct ServerPlugin {
     slug: String,
     title: String,
     autor: Option<String>,
@@ -29,12 +27,7 @@ pub struct ResourceInstance {
     blocks: Vec<BlockType>,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
-pub struct MediaMeta {
-    path: String,
-}
-
-impl ResourceInstance {
+impl ServerPlugin {
     pub fn get_slug(&self) -> &String {
         &self.slug
     }
@@ -58,31 +51,6 @@ impl ResourceInstance {
     }
     pub fn get_media_count(&self) -> usize {
         self.media.len()
-    }
-
-    pub fn has_media(&self, slug: &String) -> bool {
-        self.media.contains_key(slug)
-    }
-
-    pub fn iter_scripts(&self) -> std::collections::btree_map::Iter<'_, String, String> {
-        self.scripts.iter()
-    }
-
-    pub fn iter_media(&self) -> std::collections::btree_map::Iter<'_, String, Vec<u8>> {
-        self.media.iter()
-    }
-
-    #[allow(dead_code)]
-    pub fn empty(slug: String) -> Self {
-        Self {
-            slug: slug.clone(),
-            title: slug,
-            autor: None,
-            version: None,
-            scripts: Default::default(),
-            media: Default::default(),
-            blocks: Default::default(),
-        }
     }
 
     pub fn from_manifest(resource_path: PathBuf) -> Result<Self, String> {
@@ -111,7 +79,7 @@ impl ResourceInstance {
             None => manifest.slug.clone(),
         };
 
-        let mut inst = ResourceInstance {
+        let mut inst = Self {
             slug: manifest.slug.clone(),
             title: title,
             autor: manifest.autor.clone(),
@@ -155,7 +123,7 @@ impl ResourceInstance {
         }
         if let Some(media_list) = &manifest.media {
             for media in media_list.iter() {
-                if !ResourceInstance::is_media_allowed(&media) {
+                if !Self::is_media_allowed(&media) {
                     return Err(format!("file extension is not supported &c{}", media));
                 }
 
@@ -177,6 +145,18 @@ impl ResourceInstance {
         }
 
         Ok(inst)
+    }
+
+    pub fn has_media(&self, slug: &String) -> bool {
+        self.media.contains_key(slug)
+    }
+
+    pub fn iter_scripts(&self) -> std::collections::btree_map::Iter<'_, String, String> {
+        self.scripts.iter()
+    }
+
+    pub fn iter_media(&self) -> std::collections::btree_map::Iter<'_, String, Vec<u8>> {
+        self.media.iter()
     }
 
     pub(crate) fn get_blocks(&self) -> Vec<BlockType> {

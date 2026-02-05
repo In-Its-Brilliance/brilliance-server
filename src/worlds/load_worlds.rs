@@ -3,8 +3,8 @@ use bracket_lib::random::RandomNumberGenerator;
 use common::world_generator::default::WorldGeneratorSettings;
 
 use crate::{
-    client_resources::server_settings::ServerSettings, launch_settings::LaunchSettings,
-    network::runtime_plugin::RuntimePlugin,
+    launch_settings::LaunchSettings,
+    network::runtime_plugin::RuntimePlugin, plugins::server_settings::ServerSettings,
 };
 
 use super::worlds_manager::WorldsManager;

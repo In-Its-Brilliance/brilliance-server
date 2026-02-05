@@ -1,9 +1,9 @@
-use crate::client_resources::server_settings::ServerSettings;
 use crate::console::console_sender::ConsoleSenderType;
 use crate::entities::entity::{Position, Rotation};
 use crate::launch_settings::LaunchSettings;
 use crate::network::client_network::ClientNetwork;
 use crate::network::events::on_player_move::move_player;
+use crate::plugins::server_settings::ServerSettings;
 use bevy_ecs::world::World;
 use bracket_lib::random::RandomNumberGenerator;
 use common::commands::command::{Arg, Command, CommandMatch};

@@ -3,11 +3,8 @@ use bevy_ecs::message::{Message, MessageReader};
 use network::messages::{NetworkMessageType, ServerMessages};
 
 use crate::{
-    client_resources::{
-        resources_manager::{ResourceManager, ARCHIVE_CHUNK_SIZE},
-        server_settings::ServerSettings,
-    },
     network::client_network::ClientNetwork,
+    plugins::{plugin_manager::PluginManager, resources_archive::ARCHIVE_CHUNK_SIZE, server_settings::ServerSettings},
 };
 
 #[derive(Message)]
@@ -28,20 +25,20 @@ impl PlayerMediaLoadedEvent {
 pub fn on_media_loaded(
     mut events: MessageReader<PlayerMediaLoadedEvent>,
     server_settings: Res<ServerSettings>,
-    resources_manager: Res<ResourceManager>,
+    plugin_manager: Res<PluginManager>,
 ) {
+    let resources_archive = plugin_manager.get_resources_archive();
     for event in events.read() {
         match event.last_index {
             Some(index) => {
-                let total = resources_manager.get_archive_parts_count(ARCHIVE_CHUNK_SIZE);
+                let total = resources_archive.get_archive_parts_count(ARCHIVE_CHUNK_SIZE);
                 let is_last = (index as usize) + 1 >= total;
                 if !is_last {
                     // Send new media part
                     let resources_part = ServerMessages::ResourcesPart {
                         index: index + 1,
                         total: total as u32,
-                        data: resources_manager
-                            .get_archive_part(index as usize + 1, ARCHIVE_CHUNK_SIZE),
+                        data: resources_archive.get_archive_part(index as usize + 1, ARCHIVE_CHUNK_SIZE),
                     };
 
                     event
