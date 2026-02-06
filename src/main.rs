@@ -1,12 +1,7 @@
 use bevy::{prelude::TaskPoolPlugin, time::TimePlugin};
 use bevy_app::{App, ScheduleRunnerPlugin};
 use common::utils::print_logo;
-use debug::DebugPlugin;
-use launch_settings::{get_log_level, LaunchSettings};
-use plugins::PluginApp;
 use std::time::Duration;
-use worlds::WorldsHandlerPlugin;
-
 use tracing_subscriber::layer::SubscriberExt;
 
 use crate::console::ConsolePlugin;
@@ -14,6 +9,10 @@ use crate::{
     logger::{TracingToLogLayer, CONSOLE_LOGGER},
     network::{runtime_plugin::RuntimePlugin, server::NetworkPlugin},
 };
+use debug::DebugPlugin;
+use launch_settings::{get_log_level, LaunchSettings};
+use plugins::PluginApp;
+use worlds::WorldsHandlerPlugin;
 
 mod console;
 mod debug;

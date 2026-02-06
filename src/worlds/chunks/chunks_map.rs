@@ -236,7 +236,7 @@ impl ChunkMap {
                 log::trace!(target: "chunks", "Send chunk {} to load", chunk_position);
                 #[cfg(not(test))]
                 {
-                    use crate::worlds::chunks::chunk_column::load_chunk;
+                    use crate::worlds::chunks::chunk_generator::load_chunk;
                     load_chunk(
                         self.world_generator.clone(),
                         self.storage.clone(),

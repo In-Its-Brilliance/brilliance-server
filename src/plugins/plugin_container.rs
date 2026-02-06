@@ -123,7 +123,7 @@ impl PluginContainer {
                 Ok(w) => w,
                 Err(e) => return Err(format!("WASM plugin {:?}\n&4Error: &c{}", wasm_path.display(), e)),
             };
-            if let Err(e) = plugin_wasm.call_on_enable() {
+            if let Err(e) = plugin_wasm.call_on_enable(&manifest.slug.clone()) {
                 return Err(format!("WASM plugin {:?}\nOn enable error: &c{}", wasm_path.display(), e));
             }
             inst.plugin = Some(plugin_wasm);
@@ -249,5 +249,13 @@ impl PluginContainer {
 
     pub fn add_media(&mut self, slug: String, data: Vec<u8>) {
         self.media.insert(slug, data);
+    }
+
+    pub fn unload(&mut self) -> Result<(), String> {
+        if let Some(ref mut wasm_instance) = self.plugin {
+            wasm_instance.call_on_disable(&self.slug)?;
+        }
+        self.plugin = None;
+        Ok(())
     }
 }

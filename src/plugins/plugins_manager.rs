@@ -25,8 +25,7 @@ impl PluginsManager {
     }
 
     pub fn rescan_plugins(&mut self, path: PathBuf, server_settings: &mut ServerSettings) -> Result<(), String> {
-        self.plugins.clear();
-        server_settings.clear_blocks();
+        self.unload_all_plugins();
 
         let mut resources_archive = ResourcesArchive::default();
         let path_str = path.into_os_string().into_string().unwrap();
@@ -202,6 +201,15 @@ impl PluginsManager {
 
     pub fn add_plugin(&mut self, slug: String, plugin: PluginContainer) {
         self.plugins.insert(slug, plugin);
+    }
+
+    pub fn unload_all_plugins(&mut self) {
+        for (slug, plugin) in self.plugins.iter_mut() {
+            if let Err(e) = plugin.unload() {
+                log::warn!(target: "resources", "Error unloading plugin \"{}\": {}", slug, e);
+            }
+        }
+        self.plugins.clear();
     }
 }
 
