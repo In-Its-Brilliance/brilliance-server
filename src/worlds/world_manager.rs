@@ -9,7 +9,7 @@ use common::chunks::block_position::BlockPositionTrait;
 use common::chunks::chunk_data::BlockIndexType;
 use common::chunks::chunk_position::ChunkPosition;
 use common::world_generator::traits::WorldGeneratorSettings;
-use common::worlds_storage::taits::{IWorldStorage, WorldStorageSettings};
+use common::worlds_storage::taits::{IWorldStorage, WorldInfo, WorldStorageSettings};
 use common::WorldStorageManager;
 use network::messages::ServerMessages;
 use std::collections::BTreeMap;
@@ -23,29 +23,33 @@ pub struct ChunkChanged {
 }
 
 pub struct WorldManager {
-    slug: String,
+    world_info: WorldInfo,
     ecs: Ecs,
     chunks_map: ChunkMap,
 }
 
 impl WorldManager {
     pub fn new(
-        slug: String,
-        world_settings: WorldGeneratorSettings,
-        world_storage_settings: &WorldStorageSettings,
+        world_info: WorldInfo,
+        storage_settings: WorldStorageSettings,
+        world_generator_settings: WorldGeneratorSettings,
         block_id_map: &BTreeMap<BlockIndexType, String>,
     ) -> Result<Self, String> {
-        let storage = match WorldStorageManager::create(slug.clone(), world_storage_settings) {
+        if let Err(e) = WorldStorageManager::validate_block_id_map(
+            world_info.get_slug().clone(),
+            storage_settings.clone(),
+            block_id_map,
+        ) {
+            return Err(e);
+        };
+        let storage = match WorldStorageManager::create(storage_settings, &world_info) {
             Ok(s) => s,
             Err(e) => return Err(e),
         };
-        if let Err(e) = WorldStorageManager::validate_block_id_map(slug.clone(), world_storage_settings, block_id_map) {
-            return Err(e);
-        }
         Ok(WorldManager {
-            slug: slug,
+            world_info: world_info,
             ecs: Ecs::new(),
-            chunks_map: ChunkMap::new(world_settings, storage),
+            chunks_map: ChunkMap::new(world_generator_settings, storage),
         })
     }
 
@@ -66,7 +70,7 @@ impl WorldManager {
     }
 
     pub fn get_slug(&self) -> &String {
-        &self.slug
+        self.world_info.get_slug()
     }
 
     pub fn get_chunks_count(&self) -> usize {
@@ -102,7 +106,7 @@ impl WorldManager {
         self.get_chunks_map_mut()
             .start_chunks_render(entity, &position.get_chunk_position(), CHUNKS_DISTANCE);
 
-        WorldEntity::new(self.slug.clone(), entity)
+        WorldEntity::new(self.get_slug().clone(), entity)
     }
 
     /// Records the player's movement and updates his position in ECS.
@@ -144,7 +148,7 @@ impl WorldManager {
 
     pub fn save(&mut self) -> Result<(), String> {
         self.chunks_map.save()?;
-        log::info!(target: "worlds", "World &a\"{}\"&r saved", self.slug);
+        log::info!(target: "worlds", "World &a\"{}\"&r saved", self.world_info.get_seed());
         Ok(())
     }
 

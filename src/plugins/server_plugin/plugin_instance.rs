@@ -1,17 +1,35 @@
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use common::plugin_api::events::{plugin_load::PluginLoadEvent, plugin_unload::PluginUnloadEvent, PluginEvent};
 
+use crate::plugins::server_plugin::host_functions::{self, HostContext, SharedHostContext};
+
 pub struct PluginInstance {
     pub instance: Option<extism::Plugin>,
+    host_context: SharedHostContext,
 }
 
 impl PluginInstance {
-    pub fn new(wasm_path: &PathBuf) -> Result<Self, String> {
+    pub fn new(wasm_path: &PathBuf, slug: &str) -> Result<Self, String> {
         let wasm = extism::Wasm::file(wasm_path);
         let manifest = extism::Manifest::new([wasm]);
-        let plugin = extism::Plugin::new(&manifest, [], true).map_err(|e| format!("WASM init failed: {}", e))?;
-        Ok(Self { instance: Some(plugin) })
+
+        let ctx: SharedHostContext = Arc::new(Mutex::new(HostContext {
+            plugin_slug: slug.to_string(),
+            ..Default::default()
+        }));
+
+        let builder = extism::PluginBuilder::new(manifest).with_wasi(true);
+        let builder = host_functions::register_all(builder, &ctx);
+        let plugin = builder.build().map_err(|e| format!("WASM init failed: {}", e))?;
+
+        Ok(Self {
+            instance: Some(plugin),
+            host_context: ctx,
+        })
     }
 
     pub fn call_event<E: PluginEvent + serde::Serialize>(&mut self, event: &E) -> Result<(), String> {
@@ -22,6 +40,11 @@ impl PluginInstance {
             .call::<&str, &str>(E::EXPORT_NAME, &input)
             .map(|_| ())
             .map_err(|e| format!("{}", e))
+    }
+
+    pub fn get_world_generators(&self) -> Vec<String> {
+        let ctx = self.host_context.lock().unwrap();
+        ctx.world_generators.clone()
     }
 
     pub fn call_event_with_result<E, R>(&mut self, event: &E) -> Result<R, String>

@@ -119,7 +119,7 @@ impl PluginContainer {
         };
 
         if let Some(wasm_path) = Self::find_plugin_wasm(&resource_path)? {
-            let mut plugin_wasm = match PluginInstance::new(&wasm_path) {
+            let mut plugin_wasm = match PluginInstance::new(&wasm_path, &manifest.slug) {
                 Ok(w) => w,
                 Err(e) => return Err(format!("WASM plugin {:?}\n&4Error: &c{}", wasm_path.display(), e)),
             };

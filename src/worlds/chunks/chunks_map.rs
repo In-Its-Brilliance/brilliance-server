@@ -35,18 +35,18 @@ pub struct ChunkMap {
     // A channel for tracking successfully uploaded chunks.
     loaded_chunks: (flume::Sender<ChunkPosition>, flume::Receiver<ChunkPosition>),
 
-    world_settings: WorldGeneratorSettings,
+    world_generator_settings: WorldGeneratorSettings,
     storage: StorageLock,
 }
 
 impl ChunkMap {
-    pub fn new(world_settings: WorldGeneratorSettings, storage: WorldStorageManager) -> Self {
+    pub fn new(world_generator_settings: WorldGeneratorSettings, storage: WorldStorageManager) -> Self {
         Self {
             chunks: Default::default(),
             chunks_load_state: Default::default(),
             loaded_chunks: flume::unbounded(),
             storage: Arc::new(RwLock::new(storage)),
-            world_settings,
+            world_generator_settings,
         }
     }
 
@@ -232,7 +232,7 @@ impl ChunkMap {
                 if !cfg!(test) {
                     use crate::worlds::chunks::chunk_generator::load_chunk;
                     load_chunk(
-                        self.world_settings.clone(),
+                        self.world_generator_settings.clone(),
                         self.storage.clone(),
                         chunk_position.clone(),
                         chunk_column.clone(),
@@ -285,7 +285,7 @@ mod tests {
     use bevy::prelude::Entity;
     use common::{
         world_generator::traits::WorldGeneratorSettings,
-        worlds_storage::taits::{IWorldStorage, WorldStorageSettings},
+        worlds_storage::taits::{IWorldStorage, WorldInfo, WorldStorageSettings},
         WorldStorageManager,
     };
     use std::time::Duration;
@@ -310,8 +310,12 @@ mod tests {
 
     #[test]
     fn test_tickets_spawn_despawn() {
-        let storage = WorldStorageManager::create("test".to_string(), &WorldStorageSettings::default()).unwrap();
-        let mut chunk_map = ChunkMap::new(WorldGeneratorSettings::default(), storage);
+        let storage_settings = WorldStorageSettings::create("test".into());
+        let world_info = WorldInfo::create("Test", Some(123), "default");
+        let storage = WorldStorageManager::create(storage_settings, &world_info).unwrap();
+        let world_generator_settings = WorldGeneratorSettings::create(Some(world_info.get_seed()), "default", None);
+
+        let mut chunk_map = ChunkMap::new(world_generator_settings, storage);
         let entity = Entity::from_raw_u32(0).unwrap();
         let chunks_distance = 5_u16;
 
@@ -368,8 +372,12 @@ ___________
 
     #[test]
     fn test_update_chunks() {
-        let storage = WorldStorageManager::create("test".to_string(), &WorldStorageSettings::default()).unwrap();
-        let mut chunk_map = ChunkMap::new(WorldGeneratorSettings::default(), storage);
+        let storage_settings = WorldStorageSettings::create("test".into());
+        let world_info = WorldInfo::create("Test", Some(123), "default");
+        let storage = WorldStorageManager::create(storage_settings, &world_info).unwrap();
+        let world_generator_settings = WorldGeneratorSettings::create(Some(world_info.get_seed()), "default", None);
+
+        let mut chunk_map = ChunkMap::new(world_generator_settings, storage);
         let world_slug = "default".to_string();
         let entity = Entity::from_raw_u32(0).unwrap();
         let pos = ChunkPosition::new(0, 0);

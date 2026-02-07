@@ -7,7 +7,7 @@ use bevy_ecs::system::Res;
 use common::{
     chunks::chunk_data::BlockIndexType,
     world_generator::traits::WorldGeneratorSettings,
-    worlds_storage::taits::{IWorldStorage, WorldStorageSettings},
+    worlds_storage::taits::{IWorldStorage, WorldInfo, WorldStorageSettings},
     WorldStorageManager,
 };
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -33,26 +33,32 @@ impl Default for WorldsManager {
 impl WorldsManager {
     pub fn scan_worlds(
         &mut self,
-        data_path: PathBuf,
+        storage_settings: WorldStorageSettings,
         block_id_map: &BTreeMap<BlockIndexType, String>,
     ) -> Result<(), String> {
-        let worlds_info = match WorldStorageManager::scan_worlds(data_path.clone()) {
+        let mut worlds_info = match WorldStorageManager::scan_worlds(storage_settings.clone()) {
             Ok(w) => w,
             Err(e) => {
                 return Err(e.to_string());
             }
         };
-        for world_info in worlds_info {
-            let world_storage_settings = WorldStorageSettings::create(world_info.seed.clone(), data_path.clone());
+        for world_info in worlds_info.drain(..) {
             if let Err(e) = self.create_world(
-                world_info.slug.clone(),
-                WorldGeneratorSettings::create(world_info.seed, None),
-                &world_storage_settings,
+                world_info.clone(),
+                storage_settings.clone(),
+                WorldGeneratorSettings::create(
+                    Some(world_info.get_seed()),
+                    world_info.get_world_generator().clone(),
+                    None,
+                ),
                 block_id_map,
             ) {
                 return Err(e.to_string());
             };
-            log::info!(target: "worlds", "World &a\"{}\"&r loaded", world_info.slug);
+            log::info!(
+                target: "worlds", "World &a\"{}\"&r loaded; &7generator: &8{} &7seed: &8{}",
+                world_info.get_slug(), world_info.get_world_generator(), world_info.get_seed(),
+            );
         }
         Ok(())
     }
@@ -70,19 +76,28 @@ impl WorldsManager {
 
     pub fn create_world(
         &mut self,
-        slug: String,
-        world_settings: WorldGeneratorSettings,
-        world_storage_settings: &WorldStorageSettings,
+        world_info: WorldInfo,
+        storage_settings: WorldStorageSettings,
+        world_generator_settings: WorldGeneratorSettings,
         block_id_map: &BTreeMap<BlockIndexType, String>,
     ) -> Result<(), String> {
-        if self.worlds.contains_key(&slug) {
-            return Err(format!("&cWorld with slug &4\"{}\"&c already exists", slug));
+        if self.worlds.contains_key(world_info.get_slug()) {
+            return Err(format!(
+                "&cWorld with slug &4\"{}\"&c already exists",
+                world_info.get_slug()
+            ));
         }
-        let world = match WorldManager::new(slug.clone(), world_settings, world_storage_settings, block_id_map) {
+        let world = match WorldManager::new(
+            world_info.clone(),
+            storage_settings,
+            world_generator_settings,
+            block_id_map,
+        ) {
             Ok(w) => w,
-            Err(e) => return Err(format!("&cWorld &4\"{}\"&c error: {}", slug, e)),
+            Err(e) => return Err(format!("&cWorld &4\"{}\"&c error: {}", world_info.get_slug(), e)),
         };
-        self.worlds.insert(slug, Arc::new(RwLock::new(world)));
+        self.worlds
+            .insert(world_info.get_slug().clone(), Arc::new(RwLock::new(world)));
         Ok(())
     }
 

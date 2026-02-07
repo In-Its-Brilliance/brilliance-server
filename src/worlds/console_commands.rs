@@ -8,7 +8,7 @@ use bevy_ecs::world::World;
 use bracket_lib::random::RandomNumberGenerator;
 use common::commands::command::{Arg, Command, CommandMatch};
 use common::world_generator::traits::WorldGeneratorSettings;
-use common::worlds_storage::taits::WorldStorageSettings;
+use common::worlds_storage::taits::{WorldInfo, WorldStorageSettings};
 
 use super::worlds_manager::WorldsManager;
 
@@ -68,11 +68,15 @@ pub(crate) fn command_world(
                         rng.next_u64()
                     }
                 };
-                let world_storage_settings = WorldStorageSettings::create(seed, server_data_path);
+                let world_info = WorldInfo::create(slug.clone(), Some(seed), "default");
+                let world_storage_settings = WorldStorageSettings::create(server_data_path);
+                let world_generator_settings =
+                    WorldGeneratorSettings::create(Some(world_info.get_seed()), "default", None);
+
                 let world = worlds_manager.create_world(
-                    slug.clone(),
-                    WorldGeneratorSettings::create(seed, None),
-                    &world_storage_settings,
+                    world_info,
+                    world_storage_settings,
+                    world_generator_settings,
                     &block_id_map,
                 );
                 match world {
