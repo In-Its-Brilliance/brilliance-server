@@ -11,6 +11,8 @@ use common::{
 };
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
+use crate::{network::runtime_plugin::RuntimePlugin, plugins::plugins_manager::PluginsManager};
+
 use super::world_manager::WorldManager;
 
 type WorldsType = HashMap<String, Arc<RwLock<WorldManager>>>;
@@ -91,8 +93,17 @@ impl WorldsManager {
     }
 }
 
-pub fn update_world_chunks(worlds_manager: Res<WorldsManager>, time: Res<Time>) {
+pub fn update_world_chunks(worlds_manager: Res<WorldsManager>, time: Res<Time>, plugins_manager: Res<PluginsManager>) {
+    if RuntimePlugin::is_stopped() {
+        return;
+    }
+
     for (_key, world) in worlds_manager.get_worlds().iter() {
-        world.write().update_chunks(time.delta());
+
+        let wasm_plugin_manager = plugins_manager
+            .get_world_generator(world.read().get_world_generator())
+            .expect("world_generator is required");
+
+        world.write().update_chunks_state(time.delta(), wasm_plugin_manager);
     }
 }

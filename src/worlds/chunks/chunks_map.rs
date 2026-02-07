@@ -1,4 +1,7 @@
-use crate::{network::runtime_plugin::RuntimePlugin, worlds::world_manager::ChunkChanged, CHUNKS_DESPAWN_TIMER};
+use crate::{
+    network::runtime_plugin::RuntimePlugin, plugins::server_plugin::plugin_instance::WASMPluginManager,
+    worlds::world_manager::ChunkChanged, CHUNKS_DESPAWN_TIMER,
+};
 use ahash::AHashMap;
 use bevy::prelude::Entity;
 use common::{
@@ -185,7 +188,12 @@ impl ChunkMap {
     }
 
     /// Update chunks: load or despawn
-    pub fn update_chunks(&mut self, delta: Duration, world_slug: &String) {
+    pub fn update_chunks_state(
+        &mut self,
+        delta: Duration,
+        world_slug: &String,
+        wasm_plugin_manager: Arc<WASMPluginManager>,
+    ) {
         // Update chunks despawn timer
         // Increase ONLY of noone looking at the chunk
         for (&chunk, chunk_column) in self.chunks.iter_mut() {
@@ -232,6 +240,7 @@ impl ChunkMap {
                 if !cfg!(test) {
                     use crate::worlds::chunks::chunk_generator::load_chunk;
                     load_chunk(
+                        wasm_plugin_manager.clone(),
                         self.world_generator_settings.clone(),
                         self.storage.clone(),
                         chunk_position.clone(),
@@ -281,14 +290,14 @@ impl ChunkMap {
 #[cfg(test)]
 mod tests {
     use super::{ChunkMap, ChunkPosition};
-    use crate::CHUNKS_DESPAWN_TIMER;
+    use crate::{plugins::server_plugin::plugin_instance::WASMPluginManager, CHUNKS_DESPAWN_TIMER};
     use bevy::prelude::Entity;
     use common::{
         world_generator::traits::WorldGeneratorSettings,
         worlds_storage::taits::{IWorldStorage, WorldInfo, WorldStorageSettings},
         WorldStorageManager,
     };
-    use std::time::Duration;
+    use std::{sync::Arc, time::Duration};
 
     fn chunks_to_grid(chunks: &Vec<ChunkPosition>, center: &ChunkPosition, radius: i64) -> String {
         let mut lines = Vec::new();
@@ -372,6 +381,8 @@ ___________
 
     #[test]
     fn test_update_chunks() {
+        let wasm_plugin_manager: Arc<WASMPluginManager> = Default::default();
+
         let storage_settings = WorldStorageSettings::create("test".into());
         let world_info = WorldInfo::create("Test", Some(123), "default");
         let storage = WorldStorageManager::create(storage_settings, &world_info).unwrap();
@@ -383,7 +394,7 @@ ___________
         let pos = ChunkPosition::new(0, 0);
 
         chunk_map.chunks_load_state.insert_ticket(pos.clone(), entity.clone());
-        chunk_map.update_chunks(Duration::from_secs(1), &world_slug);
+        chunk_map.update_chunks_state(Duration::from_secs(1), &world_slug, wasm_plugin_manager.clone());
         assert_eq!(chunk_map.chunks.len(), 1, "One chunk must be created");
 
         chunk_map
@@ -392,7 +403,7 @@ ___________
             .set_despawn_timer(CHUNKS_DESPAWN_TIMER);
 
         chunk_map.chunks_load_state.remove_ticket(&pos, &entity);
-        chunk_map.update_chunks(Duration::from_secs(1), &world_slug);
+        chunk_map.update_chunks_state(Duration::from_secs(1), &world_slug, wasm_plugin_manager);
         assert_eq!(
             chunk_map.chunks.len(),
             0,

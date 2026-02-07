@@ -1,5 +1,6 @@
 use extism::*;
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex;
+use std::sync::Arc;
 
 pub type SharedHostContext = Arc<Mutex<HostContext>>;
 
@@ -40,7 +41,7 @@ pub fn register_world_generator_raw(
     let name: String = plugin.memory_get_val(&inputs[0])?;
     let inner = user_data.get()?;
     let inner = inner.lock().unwrap();
-    let mut ctx = inner.lock().unwrap();
+    let mut ctx = inner.lock();
 
     if !ctx.has_on_chunk_generate {
         return Err(Error::msg(
@@ -61,7 +62,7 @@ pub fn get_plugin_slug_raw(
 ) -> Result<(), Error> {
     let inner = user_data.get()?;
     let inner = inner.lock().unwrap();
-    let ctx = inner.lock().unwrap();
+    let ctx = inner.lock();
     plugin.memory_set_val(&mut outputs[0], ctx.get_plugin_slug())?;
     Ok(())
 }

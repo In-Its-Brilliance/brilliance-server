@@ -2,6 +2,7 @@ use bevy_ecs::{message::MessageWriter, system::Res};
 
 use crate::network::{
     client_network::{ClientNetwork, WorldEntity},
+    runtime_plugin::RuntimePlugin,
     server::NetworkContainer,
     sync_players::PlayerSpawnEvent,
 };
@@ -15,6 +16,10 @@ pub fn on_chunk_loaded(
     network_container: Res<NetworkContainer>,
     mut player_spawn_events: MessageWriter<PlayerSpawnEvent>,
 ) {
+    if RuntimePlugin::is_stopped() {
+        return;
+    }
+
     for (_key, world) in worlds_manager.get_worlds().iter() {
         let w = world.read();
         let loaded_chunks = w.get_chunks_map().drain_loaded_chunks().collect::<Vec<_>>();

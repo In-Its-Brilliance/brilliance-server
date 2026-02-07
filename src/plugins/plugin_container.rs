@@ -7,9 +7,10 @@ use std::{
     collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
-use crate::plugins::server_plugin::plugin_instance::PluginInstance;
+use super::server_plugin::plugin_instance::WASMPluginManager;
 
 const ALLOWED_FILES_EXT: &'static [&'static str] = &[".png", ".glb"];
 
@@ -35,7 +36,7 @@ pub struct PluginContainer {
 
     blocks: Vec<BlockType>,
 
-    plugin: Option<PluginInstance>,
+    plugin: Option<Arc<WASMPluginManager>>,
 }
 
 impl PluginContainer {
@@ -122,19 +123,16 @@ impl PluginContainer {
         };
 
         if let Some(wasm_path) = Self::find_plugin_wasm(&resource_path)? {
-            let mut plugin_wasm = match PluginInstance::new(&wasm_path, &manifest.slug) {
+            let pool_size = rayon::current_num_threads() + 1;
+            let wasm_plugin_manager = match WASMPluginManager::new(&wasm_path, &manifest.slug, pool_size) {
                 Ok(w) => w,
                 Err(e) => return Err(format!("WASM plugin {:?}\n&4Error: &c{}", wasm_path.display(), e)),
             };
             let event = PluginLoadEvent {};
-            if let Err(e) = plugin_wasm.call_event(&event) {
-                return Err(format!(
-                    "&cWASM plugin &4{:?}&r\n{}",
-                    wasm_path.display(),
-                    e
-                ));
+            if let Err(e) = wasm_plugin_manager.call_event(&event) {
+                return Err(format!("&cWASM plugin &4{:?}&r\n{}", wasm_path.display(), e));
             }
-            inst.plugin = Some(plugin_wasm);
+            inst.plugin = Some(Arc::new(wasm_plugin_manager));
         }
 
         let manifest_blocks = match manifest.blocks {
@@ -273,5 +271,9 @@ impl PluginContainer {
             return false;
         };
         plugin.has_world_generator(method)
+    }
+
+    pub fn get_wasm_plugin(&self) -> &Option<Arc<WASMPluginManager>> {
+        &self.plugin
     }
 }

@@ -8,9 +8,12 @@ use common::{
     utils::{calculate_hash, split_resource_path},
 };
 use network::messages::ResurceScheme;
-use std::{collections::BTreeMap, fs, path::PathBuf};
+use std::{collections::BTreeMap, fs, path::PathBuf, sync::Arc};
 
-use super::{plugin_container::PluginContainer, resources_archive::ResourcesArchive, server_settings::ServerSettings};
+use super::{
+    plugin_container::PluginContainer, resources_archive::ResourcesArchive,
+    server_plugin::plugin_instance::WASMPluginManager, server_settings::ServerSettings,
+};
 use crate::{launch_settings::LaunchSettings, network::runtime_plugin::RuntimePlugin};
 
 #[derive(Resource, Default)]
@@ -21,7 +24,10 @@ pub struct PluginsManager {
 
 impl PluginsManager {
     pub fn get_resources_archive(&self) -> &ResourcesArchive {
-        &self.resources_archive.as_ref().expect("GET_RESOURCES_ARCHIVE: resources_archive is not set")
+        &self
+            .resources_archive
+            .as_ref()
+            .expect("GET_RESOURCES_ARCHIVE: resources_archive is not set")
     }
 
     pub fn rescan_plugins(&mut self, path: PathBuf, server_settings: &mut ServerSettings) -> Result<(), String> {
@@ -39,6 +45,7 @@ impl PluginsManager {
         };
 
         for resource_path in resource_paths {
+            let now = std::time::Instant::now();
             let resource_path = resource_path.unwrap().path();
 
             let mut manifest_path = resource_path.clone();
@@ -50,7 +57,11 @@ impl PluginsManager {
             let plugin = match PluginContainer::from_manifest(resource_path.clone()) {
                 Ok(i) => i,
                 Err(e) => {
-                    return Err(format!("&cResource &o{}: \n&c{}", resource_path.display().to_string(), e));
+                    return Err(format!(
+                        "&cResource &o{}: \n&c{}",
+                        resource_path.display().to_string(),
+                        e
+                    ));
                 }
             };
             let resource_slug = plugin.get_slug().clone();
@@ -68,10 +79,12 @@ impl PluginsManager {
                 server_settings.add_block(block_type.clone());
             }
 
+            let elapsed = now.elapsed();
             log::info!(
                 target: "resources",
-                " □ Plugin &2\"{}\"&r loaded;&7 Title:&8\"{}\" &7v:&8\"{}\" &7Author:&8\"{}\" &7Scripts:&8{} &7Media:&8{} &7Blocks:&8{}",
+                " □ Plugin &2\"{}\"&r loaded {:.1?};&7 Title:&8\"{}\" &7v:&8\"{}\" &7Author:&8\"{}\" &7Scripts:&8{} &7Media:&8{} &7Blocks:&8{}",
                 plugin.get_slug(),
+                elapsed,
                 plugin.get_title(),
                 plugin.get_version(),
                 plugin.get_autor(),
@@ -210,6 +223,15 @@ impl PluginsManager {
             }
         }
         return false;
+    }
+
+    pub fn get_world_generator(&self, method: &String) -> Option<Arc<WASMPluginManager>> {
+        for (_plugin_slug, plugin) in self.plugins.iter() {
+            if plugin.has_world_generator(method) {
+                return plugin.get_wasm_plugin().clone();
+            }
+        }
+        return None;
     }
 
     pub fn unload_all_plugins(&mut self) {

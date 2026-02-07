@@ -2,6 +2,7 @@ use super::ecs::Ecs;
 use crate::entities::entity::{Position, Rotation};
 use crate::entities::EntityComponent;
 use crate::network::client_network::WorldEntity;
+use crate::plugins::server_plugin::plugin_instance::WASMPluginManager;
 use crate::worlds::chunks::chunks_map::ChunkMap;
 use crate::CHUNKS_DISTANCE;
 use bevy_ecs::bundle::Bundle;
@@ -13,6 +14,7 @@ use common::worlds_storage::taits::{IWorldStorage, WorldInfo, WorldStorageSettin
 use common::WorldStorageManager;
 use network::messages::ServerMessages;
 use std::collections::BTreeMap;
+use std::sync::Arc;
 use std::time::Duration;
 
 pub struct ChunkChanged {
@@ -67,6 +69,10 @@ impl WorldManager {
 
     pub fn get_chunks_map_mut(&mut self) -> &mut ChunkMap {
         &mut self.chunks_map
+    }
+
+    pub fn get_world_generator(&self) -> &String {
+        self.world_info.get_world_generator()
     }
 
     pub fn get_slug(&self) -> &String {
@@ -165,9 +171,9 @@ impl WorldManager {
     }
 
     /// Proxy for sending update_chunks
-    pub fn update_chunks(&mut self, delta: Duration) {
+    pub fn update_chunks_state(&mut self, delta: Duration, wasm_plugin_manager: Arc<WASMPluginManager>) {
         let world_slug = self.get_slug().clone();
-        self.chunks_map.update_chunks(delta, &world_slug);
+        self.chunks_map.update_chunks_state(delta, &world_slug, wasm_plugin_manager);
     }
 
     pub fn get_network_chunk_bytes(&self, chunk_position: &ChunkPosition) -> Option<ServerMessages> {
