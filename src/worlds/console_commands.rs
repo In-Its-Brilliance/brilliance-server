@@ -7,7 +7,8 @@ use crate::plugins::server_settings::ServerSettings;
 use bevy_ecs::world::World;
 use bracket_lib::random::RandomNumberGenerator;
 use common::commands::command::{Arg, Command, CommandMatch};
-use common::world_generator::default::WorldGeneratorSettings;
+use common::world_generator::traits::WorldGeneratorSettings;
+use common::worlds_storage::taits::WorldStorageSettings;
 
 use super::worlds_manager::WorldsManager;
 
@@ -28,7 +29,7 @@ pub(crate) fn command_world(
     args: CommandMatch,
 ) -> Result<(), String> {
     let launch_settings = world.get_resource::<LaunchSettings>().unwrap();
-    let world_storage_settings = launch_settings.get_world_storage_settings();
+    let server_data_path = launch_settings.get_server_data_path();
 
     let server_settings = world.get_resource::<ServerSettings>().unwrap();
     let block_id_map = server_settings.get_block_id_map().clone();
@@ -67,10 +68,10 @@ pub(crate) fn command_world(
                         rng.next_u64()
                     }
                 };
+                let world_storage_settings = WorldStorageSettings::create(seed, server_data_path);
                 let world = worlds_manager.create_world(
                     slug.clone(),
-                    seed,
-                    WorldGeneratorSettings::default(),
+                    WorldGeneratorSettings::create(seed, None),
                     &world_storage_settings,
                     &block_id_map,
                 );

@@ -72,8 +72,4 @@ impl LaunchSettings {
             None => env::current_dir().unwrap().clone(),
         }
     }
-
-    pub fn get_world_storage_settings(&self) -> WorldStorageSettings {
-        WorldStorageSettings::create(self.get_server_data_path())
-    }
 }

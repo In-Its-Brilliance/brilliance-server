@@ -1,10 +1,9 @@
 use bevy_ecs::system::{Res, ResMut};
 use bracket_lib::random::RandomNumberGenerator;
-use common::world_generator::default::WorldGeneratorSettings;
+use common::{world_generator::traits::WorldGeneratorSettings, worlds_storage::taits::WorldStorageSettings};
 
 use crate::{
-    launch_settings::LaunchSettings,
-    network::runtime_plugin::RuntimePlugin, plugins::server_settings::ServerSettings,
+    launch_settings::LaunchSettings, network::runtime_plugin::RuntimePlugin, plugins::server_settings::ServerSettings,
 };
 
 use super::worlds_manager::WorldsManager;
@@ -18,9 +17,9 @@ pub(crate) fn load_worlds(
         return;
     }
 
-    let world_storage_settings = launch_settings.get_world_storage_settings();
+    let server_data_path = launch_settings.get_server_data_path();
 
-    if let Err(e) = worlds_manager.scan_worlds(&world_storage_settings, server_settings.get_block_id_map()) {
+    if let Err(e) = worlds_manager.scan_worlds(server_data_path.clone(), server_settings.get_block_id_map()) {
         log::error!(target: "worlds", "&cWorlds loading error!");
         log::error!(target: "worlds", "{}", e);
         RuntimePlugin::stop();
@@ -32,10 +31,11 @@ pub(crate) fn load_worlds(
         let mut rng = RandomNumberGenerator::new();
         let seed = rng.next_u64();
 
+        let world_storage_settings = WorldStorageSettings::create(seed.clone(), server_data_path.clone());
+
         let world = worlds_manager.create_world(
             default_world.clone(),
-            seed,
-            WorldGeneratorSettings::default(),
+            WorldGeneratorSettings::create(seed.clone(), None),
             &world_storage_settings,
             server_settings.get_block_id_map(),
         );

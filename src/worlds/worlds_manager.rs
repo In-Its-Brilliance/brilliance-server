@@ -1,14 +1,14 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::BTreeMap, path::PathBuf, sync::Arc};
 
 use ahash::HashMap;
 use bevy::prelude::Resource;
 use bevy::time::Time;
 use bevy_ecs::system::Res;
 use common::{
-    WorldStorageManager,
     chunks::chunk_data::BlockIndexType,
-    world_generator::default::WorldGeneratorSettings,
+    world_generator::traits::WorldGeneratorSettings,
     worlds_storage::taits::{IWorldStorage, WorldStorageSettings},
+    WorldStorageManager,
 };
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
@@ -33,20 +33,20 @@ impl Default for WorldsManager {
 impl WorldsManager {
     pub fn scan_worlds(
         &mut self,
-        world_storage_settings: &WorldStorageSettings,
+        data_path: PathBuf,
         block_id_map: &BTreeMap<BlockIndexType, String>,
     ) -> Result<(), String> {
-        let worlds_info = match WorldStorageManager::scan_worlds(world_storage_settings) {
+        let worlds_info = match WorldStorageManager::scan_worlds(data_path.clone()) {
             Ok(w) => w,
             Err(e) => {
                 return Err(e.to_string());
             }
         };
         for world_info in worlds_info {
+            let world_storage_settings = WorldStorageSettings::create(world_info.seed.clone(), data_path.clone());
             if let Err(e) = self.create_world(
                 world_info.slug.clone(),
-                world_info.seed,
-                WorldGeneratorSettings::default(),
+                WorldGeneratorSettings::create(world_info.seed, None),
                 &world_storage_settings,
                 block_id_map,
             ) {
@@ -71,7 +71,6 @@ impl WorldsManager {
     pub fn create_world(
         &mut self,
         slug: String,
-        seed: u64,
         world_settings: WorldGeneratorSettings,
         world_storage_settings: &WorldStorageSettings,
         block_id_map: &BTreeMap<BlockIndexType, String>,
@@ -79,7 +78,7 @@ impl WorldsManager {
         if self.worlds.contains_key(&slug) {
             return Err(format!("&cWorld with slug &4\"{}\"&c already exists", slug));
         }
-        let world = match WorldManager::new(slug.clone(), seed, world_settings, world_storage_settings, block_id_map) {
+        let world = match WorldManager::new(slug.clone(), world_settings, world_storage_settings, block_id_map) {
             Ok(w) => w,
             Err(e) => return Err(format!("&cWorld &4\"{}\"&c error: {}", slug, e)),
         };

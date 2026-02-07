@@ -1,17 +1,17 @@
+use parking_lot::RwLock;
 use std::sync::Arc;
 
 use common::{
     chunks::{chunk_data::ChunkData, chunk_position::ChunkPosition},
-    world_generator::{default::WorldGenerator, traits::IWorldGenerator},
+    world_generator::traits::WorldGeneratorSettings,
     worlds_storage::taits::IWorldStorage,
 };
-use parking_lot::RwLock;
 
 use super::{chunk_column::ChunkColumn, chunks_map::StorageLock};
 use crate::network::runtime_plugin::RuntimePlugin;
 
 pub(crate) fn load_chunk(
-    world_generator: Arc<RwLock<WorldGenerator>>,
+    world_settings: WorldGeneratorSettings,
     storage: StorageLock,
     chunk_position: ChunkPosition,
     chunk_column: Arc<RwLock<ChunkColumn>>,
@@ -60,7 +60,9 @@ pub(crate) fn load_chunk(
         }
         // Or generate new
         else {
-            world_generator.read().generate_chunk_data(&chunk_position)
+            todo!();
+            // world_generator.read().generate_chunk_data(&chunk_position)
+            // world_settings
         };
         let mut chunk_column = chunk_column.write();
         chunk_column.set_sections(sections);

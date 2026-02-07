@@ -1,16 +1,16 @@
 use super::ecs::Ecs;
-use crate::CHUNKS_DISTANCE;
-use crate::entities::EntityComponent;
 use crate::entities::entity::{Position, Rotation};
+use crate::entities::EntityComponent;
 use crate::network::client_network::WorldEntity;
 use crate::worlds::chunks::chunks_map::ChunkMap;
+use crate::CHUNKS_DISTANCE;
 use bevy_ecs::bundle::Bundle;
-use common::WorldStorageManager;
 use common::chunks::block_position::BlockPositionTrait;
 use common::chunks::chunk_data::BlockIndexType;
 use common::chunks::chunk_position::ChunkPosition;
-use common::world_generator::default::WorldGeneratorSettings;
+use common::world_generator::traits::WorldGeneratorSettings;
 use common::worlds_storage::taits::{IWorldStorage, WorldStorageSettings};
+use common::WorldStorageManager;
 use network::messages::ServerMessages;
 use std::collections::BTreeMap;
 use std::time::Duration;
@@ -31,12 +31,11 @@ pub struct WorldManager {
 impl WorldManager {
     pub fn new(
         slug: String,
-        seed: u64,
         world_settings: WorldGeneratorSettings,
         world_storage_settings: &WorldStorageSettings,
         block_id_map: &BTreeMap<BlockIndexType, String>,
     ) -> Result<Self, String> {
-        let storage = match WorldStorageManager::create(slug.clone(), seed.clone(), world_storage_settings) {
+        let storage = match WorldStorageManager::create(slug.clone(), world_storage_settings) {
             Ok(s) => s,
             Err(e) => return Err(e),
         };
@@ -46,7 +45,7 @@ impl WorldManager {
         Ok(WorldManager {
             slug: slug,
             ecs: Ecs::new(),
-            chunks_map: ChunkMap::new(seed, world_settings, storage),
+            chunks_map: ChunkMap::new(world_settings, storage),
         })
     }
 
