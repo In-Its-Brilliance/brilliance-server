@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use common::plugin_api::events::{plugin_load::PluginLoadEvent, plugin_unload::PluginUnloadEvent, PluginEvent};
+use common::plugin_api::events::{generage_chunk::ChunkGenerateEvent, PluginEvent};
 
 use crate::plugins::server_plugin::host_functions::{self, HostContext, SharedHostContext};
 
@@ -17,14 +17,20 @@ impl PluginInstance {
         let wasm = extism::Wasm::file(wasm_path);
         let manifest = extism::Manifest::new([wasm]);
 
-        let ctx: SharedHostContext = Arc::new(Mutex::new(HostContext {
-            plugin_slug: slug.to_string(),
-            ..Default::default()
-        }));
+        let mut config = wasmtime::Config::new();
+        config.wasm_backtrace(false);
 
-        let builder = extism::PluginBuilder::new(manifest).with_wasi(true);
+        let ctx: SharedHostContext = Arc::new(Mutex::new(HostContext::create(slug.to_string())));
+
+        let builder = extism::PluginBuilder::new(manifest)
+            .with_wasi(true)
+            .with_wasmtime_config(config);
         let builder = host_functions::register_all(builder, &ctx);
         let plugin = builder.build().map_err(|e| format!("WASM init failed: {}", e))?;
+
+        if plugin.function_exists(ChunkGenerateEvent::EXPORT_NAME) {
+            ctx.lock().unwrap().set_has_on_chunk_generate();
+        }
 
         Ok(Self {
             instance: Some(plugin),
@@ -35,16 +41,14 @@ impl PluginInstance {
     pub fn call_event<E: PluginEvent + serde::Serialize>(&mut self, event: &E) -> Result<(), String> {
         let plugin = self.instance.as_mut().ok_or("plugin not initialized")?;
         let input = serde_json::to_string(event).map_err(|e| e.to_string())?;
-
-        plugin
-            .call::<&str, &str>(E::EXPORT_NAME, &input)
-            .map(|_| ())
-            .map_err(|e| format!("{}", e))
-    }
-
-    pub fn get_world_generators(&self) -> Vec<String> {
-        let ctx = self.host_context.lock().unwrap();
-        ctx.world_generators.clone()
+        
+        match plugin.call::<&str, &str>(E::EXPORT_NAME, &input) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                let msg = e.root_cause().to_string();
+                Err(format!("&cEvent &4\"{}\"&c error:\n{}", E::EXPORT_NAME, msg))
+            }
+        }
     }
 
     pub fn call_event_with_result<E, R>(&mut self, event: &E) -> Result<R, String>
@@ -69,17 +73,8 @@ impl PluginInstance {
             .unwrap_or(false)
     }
 
-    pub fn call_on_enable(&mut self, slug: &str) -> Result<(), String> {
-        let event = PluginLoadEvent {
-            plugin_slug: slug.to_string(),
-        };
-        self.call_event(&event)
-    }
-
-    pub fn call_on_disable(&mut self, slug: &str) -> Result<(), String> {
-        let event = PluginUnloadEvent {
-            plugin_slug: slug.to_string(),
-        };
-        self.call_event(&event)
+    pub fn has_world_generator(&self, method: &String) -> bool {
+        let ctx = self.host_context.lock().unwrap();
+        ctx.get_world_generators().contains(method)
     }
 }

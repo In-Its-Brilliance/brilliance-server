@@ -148,7 +148,7 @@ impl WorldManager {
 
     pub fn save(&mut self) -> Result<(), String> {
         self.chunks_map.save()?;
-        log::info!(target: "worlds", "World &a\"{}\"&r saved", self.world_info.get_seed());
+        log::info!(target: "worlds", "World &a\"{}\"&r saved", self.world_info.get_slug());
         Ok(())
     }
 

@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, path::PathBuf, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc};
 
 use ahash::HashMap;
 use bevy::prelude::Resource;
@@ -7,8 +7,7 @@ use bevy_ecs::system::Res;
 use common::{
     chunks::chunk_data::BlockIndexType,
     world_generator::traits::WorldGeneratorSettings,
-    worlds_storage::taits::{IWorldStorage, WorldInfo, WorldStorageSettings},
-    WorldStorageManager,
+    worlds_storage::taits::{WorldInfo, WorldStorageSettings},
 };
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
@@ -31,38 +30,6 @@ impl Default for WorldsManager {
 }
 
 impl WorldsManager {
-    pub fn scan_worlds(
-        &mut self,
-        storage_settings: WorldStorageSettings,
-        block_id_map: &BTreeMap<BlockIndexType, String>,
-    ) -> Result<(), String> {
-        let mut worlds_info = match WorldStorageManager::scan_worlds(storage_settings.clone()) {
-            Ok(w) => w,
-            Err(e) => {
-                return Err(e.to_string());
-            }
-        };
-        for world_info in worlds_info.drain(..) {
-            if let Err(e) = self.create_world(
-                world_info.clone(),
-                storage_settings.clone(),
-                WorldGeneratorSettings::create(
-                    Some(world_info.get_seed()),
-                    world_info.get_world_generator().clone(),
-                    None,
-                ),
-                block_id_map,
-            ) {
-                return Err(e.to_string());
-            };
-            log::info!(
-                target: "worlds", "World &a\"{}\"&r loaded; &7generator: &8{} &7seed: &8{}",
-                world_info.get_slug(), world_info.get_world_generator(), world_info.get_seed(),
-            );
-        }
-        Ok(())
-    }
-
     pub fn has_world_with_slug(&self, slug: &String) -> bool {
         self.worlds.contains_key(slug)
     }

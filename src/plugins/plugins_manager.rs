@@ -50,7 +50,7 @@ impl PluginsManager {
             let plugin = match PluginContainer::from_manifest(resource_path.clone()) {
                 Ok(i) => i,
                 Err(e) => {
-                    return Err(format!("Resource &e{}: \n&c{}", resource_path.display().to_string(), e));
+                    return Err(format!("&cResource &o{}: \n&c{}", resource_path.display().to_string(), e));
                 }
             };
             let resource_slug = plugin.get_slug().clone();
@@ -201,6 +201,15 @@ impl PluginsManager {
 
     pub fn add_plugin(&mut self, slug: String, plugin: PluginContainer) {
         self.plugins.insert(slug, plugin);
+    }
+
+    pub fn has_world_generator(&self, method: &String) -> bool {
+        for (_plugin_slug, plugin) in self.plugins.iter() {
+            if plugin.has_world_generator(method) {
+                return true;
+            }
+        }
+        return false;
     }
 
     pub fn unload_all_plugins(&mut self) {

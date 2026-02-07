@@ -1,4 +1,7 @@
-use common::blocks::block_type::{BlockContent, BlockType, BlockTypeManifest};
+use common::{
+    blocks::block_type::{BlockContent, BlockType, BlockTypeManifest},
+    plugin_api::events::{plugin_load::PluginLoadEvent, plugin_unload::PluginUnloadEvent},
+};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -123,8 +126,13 @@ impl PluginContainer {
                 Ok(w) => w,
                 Err(e) => return Err(format!("WASM plugin {:?}\n&4Error: &c{}", wasm_path.display(), e)),
             };
-            if let Err(e) = plugin_wasm.call_on_enable(&manifest.slug.clone()) {
-                return Err(format!("WASM plugin {:?}\nOn enable error: &c{}", wasm_path.display(), e));
+            let event = PluginLoadEvent {};
+            if let Err(e) = plugin_wasm.call_event(&event) {
+                return Err(format!(
+                    "&cWASM plugin &4{:?}&r\n{}",
+                    wasm_path.display(),
+                    e
+                ));
             }
             inst.plugin = Some(plugin_wasm);
         }
@@ -253,9 +261,17 @@ impl PluginContainer {
 
     pub fn unload(&mut self) -> Result<(), String> {
         if let Some(ref mut wasm_instance) = self.plugin {
-            wasm_instance.call_on_disable(&self.slug)?;
+            let event = PluginUnloadEvent {};
+            wasm_instance.call_event(&event)?;
         }
         self.plugin = None;
         Ok(())
+    }
+
+    pub fn has_world_generator(&self, method: &String) -> bool {
+        let Some(plugin) = self.plugin.as_ref() else {
+            return false;
+        };
+        plugin.has_world_generator(method)
     }
 }
