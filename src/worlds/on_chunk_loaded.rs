@@ -20,12 +20,11 @@ pub fn on_chunk_loaded(
         return;
     }
 
-    for (_key, world) in worlds_manager.get_worlds().iter() {
-        let w = world.read();
-        let loaded_chunks = w.get_chunks_map().drain_loaded_chunks().collect::<Vec<_>>();
+    for world in worlds_manager.iter_worlds() {
+        let loaded_chunks = world.get_chunks_map().drain_loaded_chunks().collect::<Vec<_>>();
         for chunk_position in loaded_chunks {
-            let world_slug = w.get_slug().clone();
-            let ecs = w.get_ecs();
+            let world_slug = world.get_slug().clone();
+            let ecs = world.get_ecs();
 
             'entity_loop: for entity in ecs.get_chunk_entities(&chunk_position).unwrap() {
                 let Some(network) = entity.get::<ClientNetwork>() else {

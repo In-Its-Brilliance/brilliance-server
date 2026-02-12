@@ -30,6 +30,7 @@ fxhash = "0.2"
 shellexpand = "3.1"
 regex = "1.11"
 tokio = { version = "1.44", features = [ "full" ] }
+rand = "0.8"
 
 zip = "7.1"
 

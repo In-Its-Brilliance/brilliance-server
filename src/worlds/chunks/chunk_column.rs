@@ -1,6 +1,7 @@
 use common::chunks::block_position::ChunkBlockPosition;
 use common::chunks::chunk_data::{BlockDataInfo, ChunkData};
 use common::chunks::chunk_position::ChunkPosition;
+use common::utils::compressable::Compressable;
 use core::fmt;
 use network::messages::ServerMessages;
 use parking_lot::RwLock;

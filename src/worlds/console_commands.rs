@@ -1,15 +1,9 @@
 use crate::console::console_sender::ConsoleSenderType;
 use crate::entities::entity::{Position, Rotation};
-use crate::launch_settings::LaunchSettings;
 use crate::network::client_network::ClientNetwork;
 use crate::network::events::on_player_move::move_player;
-use crate::plugins::plugins_manager::PluginsManager;
-use crate::plugins::server_settings::ServerSettings;
 use bevy_ecs::world::World;
-use bracket_lib::random::RandomNumberGenerator;
 use common::commands::command::{Arg, Command, CommandMatch};
-use common::world_generator::traits::WorldGeneratorSettings;
-use common::worlds_storage::taits::{WorldInfo, WorldStorageSettings};
 
 use super::worlds_manager::WorldsManager;
 
@@ -17,12 +11,6 @@ pub(crate) fn command_parser_world() -> Command {
     Command::new("world".to_string())
         .subcommand_required(true)
         .subcommand(Command::new("list".to_owned()))
-        .subcommand(
-            Command::new("create".to_owned())
-                .arg(Arg::new("slug".to_owned()).required(true))
-                .arg(Arg::new("seed".to_owned()))
-                .arg(Arg::new("method".to_owned())),
-        )
 }
 
 pub(crate) fn command_world(
@@ -30,12 +18,6 @@ pub(crate) fn command_world(
     sender: Box<dyn ConsoleSenderType>,
     args: CommandMatch,
 ) -> Result<(), String> {
-    let launch_settings = world.get_resource::<LaunchSettings>().unwrap();
-    let server_data_path = launch_settings.get_server_data_path();
-
-    let server_settings = world.get_resource::<ServerSettings>().unwrap();
-    let block_id_map = server_settings.get_block_id_map().clone();
-
     if let Some(world_subcommand) = args.subcommand() {
         match world_subcommand.get_name().as_str() {
             "list" => {
@@ -44,62 +26,13 @@ pub(crate) fn command_world(
                     sender.send_console_message("Worlds list is empty".to_string());
                     return Ok(());
                 }
-                let worlds = worlds_manager.get_worlds();
                 sender.send_console_message("Worlds list:".to_string());
-                for (_slug, world) in worlds.iter() {
-                    let world = world.read();
+                for world in worlds_manager.iter_worlds() {
                     sender.send_console_message(format!(
                         " - {} (loaded chunks: {})",
                         world.get_slug(),
                         world.get_chunks_count()
                     ));
-                }
-            }
-            "create" => {
-                let slug = world_subcommand.get_arg::<String, _>("slug")?;
-                if slug.len() == 0 {
-                    sender.send_console_message(format!("Name of the world cannot be empty"));
-                    return Ok(());
-                }
-
-                let seed = match world_subcommand.get_arg::<u64, _>("slug") {
-                    Ok(s) => s,
-                    Err(_) => {
-                        let mut rng = RandomNumberGenerator::new();
-                        rng.next_u64()
-                    }
-                };
-
-                let method = match world_subcommand.get_arg::<String, _>("method") {
-                    Ok(s) => s,
-                    Err(_) => "default".to_string(),
-                };
-
-                let plugins_manager = world.get_resource::<PluginsManager>().unwrap();
-                if !plugins_manager.has_world_generator(&method) {
-                    sender.send_console_message(format!("&cworld generator \"{}\" not found ", method));
-                    return Ok(());
-                }
-
-                let world_info = WorldInfo::create(slug.clone(), Some(seed), method);
-                let world_storage_settings = WorldStorageSettings::create(server_data_path);
-                let world_generator_settings =
-                    WorldGeneratorSettings::create(Some(world_info.get_seed()), world_info.get_world_generator(), None);
-
-                let mut worlds_manager = world.resource_mut::<WorldsManager>();
-                let world = worlds_manager.create_world(
-                    world_info,
-                    world_storage_settings,
-                    world_generator_settings,
-                    &block_id_map,
-                );
-                match world {
-                    Ok(_) => {
-                        sender.send_console_message(format!("World \"{}\" was successfully created", slug));
-                    }
-                    Err(e) => {
-                        sender.send_console_message(format!("World \"{}\" creation error: {}", slug, e));
-                    }
                 }
             }
             _ => {

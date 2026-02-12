@@ -10,7 +10,7 @@ use common::{
         chunk_data::BlockDataInfo,
         chunk_position::ChunkPosition,
     },
-    utils::{spiral_iterator::SpiralIterator, vec_remove_item},
+    utils::{compressable::Compressable, spiral_iterator::SpiralIterator, vec_remove_item},
     world_generator::traits::WorldGeneratorSettings,
     worlds_storage::taits::IWorldStorage,
     WorldStorageManager, VERTICAL_SECTIONS,
@@ -39,18 +39,46 @@ pub struct ChunkMap {
     loaded_chunks: (flume::Sender<ChunkPosition>, flume::Receiver<ChunkPosition>),
 
     world_generator_settings: WorldGeneratorSettings,
+
     storage: StorageLock,
 }
 
+#[cfg(test)]
+impl Default for ChunkMap {
+    fn default() -> Self {
+        use common::worlds_storage::taits::{WorldStorageData, WorldStorageSettings};
+
+        let (tx, rx) = flume::unbounded();
+
+        let storage_settings = WorldStorageSettings::in_memory();
+
+        let storage = WorldStorageManager::init(storage_settings, "default").unwrap();
+        let world_data = WorldStorageData::default();
+        storage.create_new(&world_data).unwrap();
+
+        Self {
+            chunks: Default::default(),
+            chunks_load_state: Default::default(),
+            loaded_chunks: (tx, rx),
+            world_generator_settings: Default::default(),
+            storage: Arc::new(RwLock::new(storage)),
+        }
+    }
+}
+
 impl ChunkMap {
-    pub fn new(world_generator_settings: WorldGeneratorSettings, storage: WorldStorageManager) -> Self {
+    pub fn new(world_storage: WorldStorageManager, world_generator_settings: WorldGeneratorSettings) -> Self {
         Self {
             chunks: Default::default(),
             chunks_load_state: Default::default(),
             loaded_chunks: flume::unbounded(),
-            storage: Arc::new(RwLock::new(storage)),
             world_generator_settings,
+            storage: Arc::new(RwLock::new(world_storage)),
         }
+    }
+
+    pub fn get_world_generator_settings(&self) -> &WorldGeneratorSettings {
+        &self.world_generator_settings
     }
 
     pub fn drain_loaded_chunks(&self) -> flume::Drain<'_, ChunkPosition> {
@@ -218,7 +246,7 @@ impl ChunkMap {
                     log::error!(target: "worlds", "&cChunk save error!");
                     log::error!(target: "worlds", "Error: {}", e);
                     RuntimePlugin::stop();
-                    panic!();
+                    panic!("Chunk save error: {}", e);
                 }
             }
             !for_despawn
@@ -292,11 +320,6 @@ mod tests {
     use super::{ChunkMap, ChunkPosition};
     use crate::{plugins::server_plugin::plugin_instance::WASMPluginManager, CHUNKS_DESPAWN_TIMER};
     use bevy::prelude::Entity;
-    use common::{
-        world_generator::traits::WorldGeneratorSettings,
-        worlds_storage::taits::{IWorldStorage, WorldInfo, WorldStorageSettings},
-        WorldStorageManager,
-    };
     use std::{sync::Arc, time::Duration};
 
     fn chunks_to_grid(chunks: &Vec<ChunkPosition>, center: &ChunkPosition, radius: i64) -> String {
@@ -319,12 +342,7 @@ mod tests {
 
     #[test]
     fn test_tickets_spawn_despawn() {
-        let storage_settings = WorldStorageSettings::create("test".into());
-        let world_info = WorldInfo::create("Test", Some(123), "default");
-        let storage = WorldStorageManager::create(storage_settings, &world_info).unwrap();
-        let world_generator_settings = WorldGeneratorSettings::create(Some(world_info.get_seed()), "default", None);
-
-        let mut chunk_map = ChunkMap::new(world_generator_settings, storage);
+        let mut chunk_map = ChunkMap::default();
         let entity = Entity::from_raw_u32(0).unwrap();
         let chunks_distance = 5_u16;
 
@@ -382,13 +400,7 @@ ___________
     #[test]
     fn test_update_chunks() {
         let wasm_plugin_manager: Arc<WASMPluginManager> = Default::default();
-
-        let storage_settings = WorldStorageSettings::create("test".into());
-        let world_info = WorldInfo::create("Test", Some(123), "default");
-        let storage = WorldStorageManager::create(storage_settings, &world_info).unwrap();
-        let world_generator_settings = WorldGeneratorSettings::create(Some(world_info.get_seed()), "default", None);
-
-        let mut chunk_map = ChunkMap::new(world_generator_settings, storage);
+        let mut chunk_map = ChunkMap::default();
         let world_slug = "default".to_string();
         let entity = Entity::from_raw_u32(0).unwrap();
         let pos = ChunkPosition::new(0, 0);

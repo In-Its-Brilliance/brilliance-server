@@ -2,7 +2,11 @@ use parking_lot::RwLock;
 use std::sync::Arc;
 
 use common::{
-    chunks::{chunk_data::ChunkData, chunk_position::ChunkPosition}, plugin_api::events::generage_chunk::ChunkGenerateEvent, world_generator::traits::WorldGeneratorSettings, worlds_storage::taits::IWorldStorage
+    chunks::{chunk_data::ChunkData, chunk_position::ChunkPosition},
+    plugin_api::events::generage_chunk::ChunkGenerateEvent,
+    utils::compressable::Compressable,
+    world_generator::traits::WorldGeneratorSettings,
+    worlds_storage::taits::IWorldStorage,
 };
 
 use super::{chunk_column::ChunkColumn, chunks_map::StorageLock};
@@ -10,20 +14,20 @@ use crate::{network::runtime_plugin::RuntimePlugin, plugins::server_plugin::plug
 
 pub(crate) fn load_chunk(
     plugin: Arc<WASMPluginManager>,
-    world_settings: WorldGeneratorSettings,
+    world_generator_settings: WorldGeneratorSettings,
     storage: StorageLock,
     chunk_position: ChunkPosition,
     chunk_column: Arc<RwLock<ChunkColumn>>,
     loaded_chunks: flume::Sender<ChunkPosition>,
 ) {
     rayon::spawn(move || {
-        #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("chunk_column.load_chunk").entered();
-        let _s = crate::span!("chunk_column.load_chunk");
-
         if RuntimePlugin::is_stopped() {
             return;
         }
+
+        #[cfg(feature = "trace")]
+        let _span = bevy_utils::tracing::info_span!("chunk_column.load_chunk").entered();
+        let _s = crate::span!("chunk_column.load_chunk");
 
         // Load from storage
         let index = match storage.read().has_chunk_data(&chunk_position) {
@@ -59,10 +63,7 @@ pub(crate) fn load_chunk(
         }
         // Or generate new
         else {
-            let event = ChunkGenerateEvent::create(
-                chunk_position.clone(),
-                world_settings.clone(),
-            );
+            let event = ChunkGenerateEvent::create(chunk_position, world_generator_settings);
             match plugin.call_event_with_result(&event) {
                 Ok(sections) => sections,
                 Err(e) => {

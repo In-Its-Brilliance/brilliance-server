@@ -7,13 +7,10 @@ use crate::worlds::chunks::chunks_map::ChunkMap;
 use crate::CHUNKS_DISTANCE;
 use bevy_ecs::bundle::Bundle;
 use common::chunks::block_position::BlockPositionTrait;
-use common::chunks::chunk_data::BlockIndexType;
 use common::chunks::chunk_position::ChunkPosition;
 use common::world_generator::traits::WorldGeneratorSettings;
-use common::worlds_storage::taits::{IWorldStorage, WorldInfo, WorldStorageSettings};
 use common::WorldStorageManager;
 use network::messages::ServerMessages;
-use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -25,34 +22,27 @@ pub struct ChunkChanged {
 }
 
 pub struct WorldManager {
-    world_info: WorldInfo,
+    slug: String,
     ecs: Ecs,
     chunks_map: ChunkMap,
 }
 
 impl WorldManager {
     pub fn new(
-        world_info: WorldInfo,
-        storage_settings: WorldStorageSettings,
+        slug: String,
+        world_storage: WorldStorageManager,
         world_generator_settings: WorldGeneratorSettings,
-        block_id_map: &BTreeMap<BlockIndexType, String>,
     ) -> Result<Self, String> {
-        if let Err(e) = WorldStorageManager::validate_block_id_map(
-            world_info.get_slug().clone(),
-            storage_settings.clone(),
-            block_id_map,
-        ) {
-            return Err(e);
-        };
-        let storage = match WorldStorageManager::create(storage_settings, &world_info) {
-            Ok(s) => s,
-            Err(e) => return Err(e),
-        };
         Ok(WorldManager {
-            world_info: world_info,
+            slug,
             ecs: Ecs::new(),
-            chunks_map: ChunkMap::new(world_generator_settings, storage),
+            chunks_map: ChunkMap::new(world_storage, world_generator_settings),
         })
+    }
+
+    pub fn get_world_generator(&self) -> String {
+        let world_generator_settings = self.chunks_map.get_world_generator_settings();
+        world_generator_settings.get_method().clone()
     }
 
     pub fn get_ecs(&self) -> &Ecs {
@@ -71,12 +61,8 @@ impl WorldManager {
         &mut self.chunks_map
     }
 
-    pub fn get_world_generator(&self) -> &String {
-        self.world_info.get_world_generator()
-    }
-
     pub fn get_slug(&self) -> &String {
-        self.world_info.get_slug()
+        &self.slug
     }
 
     pub fn get_chunks_count(&self) -> usize {
@@ -154,7 +140,7 @@ impl WorldManager {
 
     pub fn save(&mut self) -> Result<(), String> {
         self.chunks_map.save()?;
-        log::info!(target: "worlds", "World &a\"{}\"&r saved", self.world_info.get_slug());
+        log::info!(target: "worlds", "World &a\"{}\"&r saved", self.get_slug());
         Ok(())
     }
 
@@ -173,7 +159,8 @@ impl WorldManager {
     /// Proxy for sending update_chunks
     pub fn update_chunks_state(&mut self, delta: Duration, wasm_plugin_manager: Arc<WASMPluginManager>) {
         let world_slug = self.get_slug().clone();
-        self.chunks_map.update_chunks_state(delta, &world_slug, wasm_plugin_manager);
+        self.chunks_map
+            .update_chunks_state(delta, &world_slug, wasm_plugin_manager);
     }
 
     pub fn get_network_chunk_bytes(&self, chunk_position: &ChunkPosition) -> Option<ServerMessages> {
