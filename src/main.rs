@@ -59,7 +59,7 @@ fn main() {
     app.add_plugins((
         TimePlugin::default(),
         TaskPoolPlugin::default(),
-        ScheduleRunnerPlugin::default(),
+        ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(1.0 / common::TARGET_TPS)),
         RuntimePlugin::default(),
         PluginApp::default(),
         ConsolePlugin::default(),

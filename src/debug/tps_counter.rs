@@ -41,9 +41,8 @@ pub(crate) fn tps_counter_system(time: Res<Time>, mut counter: ResMut<TpsCounter
 
     #[cfg(debug_assertions)]
     {
-        use super::runtime_reporter::TPS_THRESHOLD;
-
-        if counter.ticks < (TPS_THRESHOLD + 10.0) as u32 {
+        // Репортим только после первого измерения TPS (через 1 секунду после старта)
+        if counter.tps == 0.0 {
             return;
         }
 

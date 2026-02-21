@@ -148,7 +148,6 @@ impl PluginContainer {
             if let Some(slug) = block.slug.as_ref() {
                 b = b.set_slug(slug.clone());
             }
-            b = b.visibility(block.voxel_visibility);
             inst.blocks.push(b);
         }
 

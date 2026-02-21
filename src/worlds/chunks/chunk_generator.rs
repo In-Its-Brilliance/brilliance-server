@@ -25,10 +25,6 @@ pub(crate) fn load_chunk(
             return;
         }
 
-        #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("chunk_column.load_chunk").entered();
-        let _s = crate::span!("chunk_column.load_chunk");
-
         // Load from storage
         let index = match storage.read().has_chunk_data(&chunk_position) {
             Ok(i) => i,

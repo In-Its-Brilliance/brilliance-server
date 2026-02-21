@@ -33,7 +33,6 @@ use network::messages::{ClientMessages, NetworkMessageType, ServerMessages};
 use network::server::{ConnectionMessages, IServerConnection, IServerNetwork};
 use network::NetworkServer;
 
-const NO_CONNECTIONS_DELAY: std::time::Duration = std::time::Duration::from_millis(5);
 const SEND_CHUNKS_DELAY: std::time::Duration = std::time::Duration::from_millis(10);
 
 pub struct NetworkPlugin;
@@ -159,10 +158,6 @@ fn receive_message_system(
     let _s = crate::span!("server.receive_message_system");
 
     let network = network_container.server_network.as_ref();
-
-    if network.connections_count() == 0 {
-        std::thread::sleep(NO_CONNECTIONS_DELAY);
-    }
 
     {
         let _s = crate::span!("server.receive_message_system::network_step");

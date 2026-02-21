@@ -4,7 +4,8 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 const REPORT_COOLDOWN: Duration = Duration::from_secs(10);
-pub(crate) const TPS_THRESHOLD: f32 = 55.0;
+/// Предупреждение при просадке ниже 90% от целевого TPS
+pub(crate) const TPS_THRESHOLD: f32 = (common::TARGET_TPS * 0.9) as f32;
 
 macro_rules! lags_template {
     () => {

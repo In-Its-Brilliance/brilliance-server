@@ -1,7 +1,7 @@
 pub mod console_commands;
 pub mod tps_counter;
 
-use bevy_app::{App, FixedUpdate, Plugin, Startup};
+use bevy_app::{App, Plugin, Startup, Update};
 #[cfg(debug_assertions)]
 use common::utils::debug::runtime_storage::RuntimeStorage;
 
@@ -47,7 +47,7 @@ impl Default for DebugPlugin {
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, crate::debug::tps_counter::tps_counter_init);
-        app.add_systems(FixedUpdate, crate::debug::tps_counter::tps_counter_system);
+        app.add_systems(Update, crate::debug::tps_counter::tps_counter_system);
 
         let mut commands_handler = app.world_mut().get_resource_mut::<CommandsHandler>().unwrap();
         commands_handler.add_command_executer(CommandExecuter::new(command_parser_tps(), command_tps));
