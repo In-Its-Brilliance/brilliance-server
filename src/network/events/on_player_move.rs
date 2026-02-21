@@ -1,5 +1,6 @@
+use bevy::time::Time;
 use bevy_ecs::message::{Message, MessageReader};
-use bevy_ecs::system::ResMut;
+use bevy_ecs::system::{Res, ResMut};
 use common::chunks::block_position::BlockPositionTrait;
 
 use crate::entities::entity::Rotation;
@@ -28,7 +29,9 @@ impl PlayerMoveEvent {
 pub fn on_player_move(
     mut player_move_events: MessageReader<PlayerMoveEvent>,
     worlds_manager: ResMut<WorldsManager>,
+    time: Res<Time>,
 ) {
+    let server_time = time.elapsed().as_secs_f32();
     for event in player_move_events.read() {
         let world_entity = event.client.get_world_entity();
         let world_entity = match world_entity.as_ref() {
@@ -63,6 +66,7 @@ pub fn on_player_move(
             world_entity,
             event.position,
             event.rotation,
+            server_time,
         );
     }
 }
@@ -73,6 +77,7 @@ pub fn move_player(
     world_entity: &WorldEntity,
     position: Position,
     rotation: Rotation,
+    server_time: f32,
 ) {
     let chunks_changed = world_manager.player_move(&world_entity, position, rotation);
 
@@ -87,5 +92,5 @@ pub fn move_player(
         );
     }
 
-    sync_player_move(world_manager, world_entity.get_entity(), &chunks_changed);
+    sync_player_move(world_manager, world_entity.get_entity(), &chunks_changed, server_time);
 }

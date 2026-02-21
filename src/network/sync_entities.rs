@@ -93,6 +93,7 @@ pub(crate) fn sync_entity_move(
     world_manager: &WorldManager,
     target_entity: Entity,
     chunks_changed: &Option<ChunkChanged>,
+    server_time: f32,
 ) {
     let ecs = world_manager.get_ecs();
     let entity_ref = ecs.get_entity(target_entity).unwrap();
@@ -104,6 +105,7 @@ pub(crate) fn sync_entity_move(
         id: target_entity.index(),
         position: position.to_network(),
         rotation: rotation.to_network(),
+        timestamp: server_time,
     };
     let stop_msg = ServerMessages::StopStreamingEntities {
         world_slug: world_manager.get_slug().clone(),

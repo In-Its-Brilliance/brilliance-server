@@ -1,3 +1,4 @@
+use bevy::time::Time;
 use crate::console::console_sender::ConsoleSenderType;
 use crate::entities::entity::{Position, Rotation};
 use crate::network::client_network::ClientNetwork;
@@ -59,6 +60,7 @@ pub(crate) fn command_teleport(
     let y = args.get_arg::<f32, _>("y")?.clone();
     let z = args.get_arg::<f32, _>("z")?.clone();
 
+    let server_time = world.resource::<Time>().elapsed().as_secs_f32();
     let worlds_manager = world.resource::<WorldsManager>();
 
     let client = match sender.as_any().downcast_ref::<ClientNetwork>() {
@@ -84,6 +86,6 @@ pub(crate) fn command_teleport(
         .get_world_manager_mut(&world_entity.get_world_slug())
         .unwrap();
 
-    move_player(&mut *world_manager, &world_entity, position, rotation);
+    move_player(&mut *world_manager, &world_entity, position, rotation, server_time);
     return Ok(());
 }
