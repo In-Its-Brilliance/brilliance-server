@@ -187,6 +187,16 @@ impl ClientNetwork {
         self.debug_check_chunk_state();
     }
 
+    /// Mark chunk as queued for sending (added to send_chunk_queue without actual network send).
+    /// Used before spawning rayon compression task to prevent re-picking.
+    pub fn mark_chunk_sending(&self, chunk_position: &ChunkPosition) {
+        if self.send_chunk_queue.read().contains(chunk_position) {
+            panic!("Tried to send already sended chunk! {}", chunk_position);
+        }
+        self.send_chunk_queue.write().push(chunk_position.clone());
+        self.debug_check_chunk_state();
+    }
+
     /// Send chunk which was just loaded
     pub fn send_chunk(&self, chunk_position: &ChunkPosition, message: ServerMessages) {
         if self.send_chunk_queue.read().contains(&chunk_position) {

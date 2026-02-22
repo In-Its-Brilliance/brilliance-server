@@ -107,6 +107,10 @@ impl ChunkMap {
         }
     }
 
+    pub fn get_chunk_column_arc(&self, chunk_position: &ChunkPosition) -> Option<Arc<RwLock<ChunkColumn>>> {
+        self.chunks.get(chunk_position).cloned()
+    }
+
     /// Get all chunks watching by the player
     pub fn get_watching_chunks(&self, entity: &Entity) -> Option<&Vec<ChunkPosition>> {
         self.chunks_load_state.get_watching_chunks(entity)

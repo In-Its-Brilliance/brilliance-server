@@ -10,7 +10,7 @@ default = []
 trace = []
 
 [dependencies]
-common = { git = "https://github.com/In-Its-Brilliance/brilliance-common", features = ["wasm-plugin"] }
+common = { git = "https://github.com/In-Its-Brilliance/brilliance-common", features = ["wasm-plugin", "full"] }
 network = { git = "https://github.com/In-Its-Brilliance/brilliance-network" }
 
 bevy = { version = "0.17", default-features = false }

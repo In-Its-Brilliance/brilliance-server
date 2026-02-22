@@ -3,17 +3,36 @@ use crate::{
     worlds::{world_manager::WorldManager, worlds_manager::WorldsManager},
     CHUNKS_DISTANCE,
 };
-use bevy_ecs::system::Res;
+use bevy_ecs::{resource::Resource, system::Res};
 use common::{
     chunks::{block_position::BlockPositionTrait, chunk_position::ChunkPosition},
     utils::spiral_iterator::SpiralIterator,
 };
+use network::messages::{NetworkMessageType, ServerMessages};
 
 use super::{
     client_network::{ClientNetwork, WorldEntity},
     clients_container::ClientsContainer,
     server::NetworkContainer,
 };
+
+pub struct PreparedChunk {
+    client_id: u64,
+    message: ServerMessages,
+}
+
+#[derive(Resource)]
+pub struct ChunkCompressQueue {
+    sender: flume::Sender<PreparedChunk>,
+    receiver: flume::Receiver<PreparedChunk>,
+}
+
+impl Default for ChunkCompressQueue {
+    fn default() -> Self {
+        let (sender, receiver) = flume::unbounded();
+        Self { sender, receiver }
+    }
+}
 
 /// Sends missing chunk data to connected clients.
 ///
@@ -24,6 +43,7 @@ pub fn send_chunks(
     worlds_manager: Res<WorldsManager>,
     clients: Res<ClientsContainer>,
     network_container: Res<NetworkContainer>,
+    compress_queue: Res<ChunkCompressQueue>,
 ) {
     #[cfg(feature = "trace")]
     let _span = bevy_utils::tracing::info_span!("chunks_sender.send_chunks").entered();
@@ -65,7 +85,7 @@ pub fn send_chunks(
             continue;
         }
 
-        send_chunks_to_client(&*world, &world_entity, network_client, player_watching_chunks);
+        send_chunks_to_client(&*world, &world_entity, network_client, player_watching_chunks, &compress_queue.sender);
     }
 }
 
@@ -73,12 +93,13 @@ pub fn send_chunks(
 ///
 /// Iterates over chunks around the player in spiral order,
 /// checks that the chunk is watched, loaded, and not yet sent,
-/// and enqueues and sends the chunk data until the send queue limit is reached.
+/// marks the chunk as queued and spawns a rayon task for zstd compression.
 fn send_chunks_to_client(
     world_manager: &WorldManager,
     world_entity: &WorldEntity,
     network_client: &ClientNetwork,
     player_watching_chunks: &Vec<ChunkPosition>,
+    sender: &flume::Sender<PreparedChunk>,
 ) {
     let ecs = world_manager.get_ecs();
     let entity_ref = ecs.get_entity(world_entity.get_entity()).unwrap();
@@ -108,26 +129,49 @@ fn send_chunks_to_client(
             continue;
         }
 
-        // get chunk data
-        let chunk = match world_manager.get_chunks_map().get_chunk_column(&chunk_position) {
+        // get chunk Arc for rayon task
+        let chunk_arc = match world_manager.get_chunks_map().get_chunk_column_arc(&chunk_position) {
             Some(c) => c,
             None => continue,
         };
-        if !chunk.is_loaded() {
+
+        // check loaded before spawning
+        if !chunk_arc.read().is_loaded() {
             continue;
         }
 
-        // serialize chunk once and send to client
-        let message = world_manager
-            .get_network_chunk_bytes(&chunk_position)
-            .expect("send_chunks: chunk bytes not found");
+        // mark as queued immediately to prevent re-picking
+        network_client.mark_chunk_sending(&chunk_position);
 
-        network_client.send_chunk(&chunk_position, message);
-        // log::info!(
-        //     target: "network.chunks_sender",
-        //     "SEND_LOADED_CHUNK {} chunk_position:{}",
-        //     world_entity.get_entity().index(),
-        //     chunk_position,
-        // );
+        // spawn compression task in rayon threadpool
+        let sender = sender.clone();
+        let client_id = network_client.get_client_id();
+        rayon::spawn(move || {
+            let chunk = chunk_arc.read();
+            let message = chunk.build_network_format();
+            let _ = sender.send(PreparedChunk {
+                client_id,
+                message,
+            });
+        });
+    }
+}
+
+/// Drains compressed chunk results from rayon and sends them over the network.
+pub fn flush_compressed_chunks(
+    compress_queue: Res<ChunkCompressQueue>,
+    clients: Res<ClientsContainer>,
+    network_container: Res<NetworkContainer>,
+) {
+    let _s = crate::span!("chunks_sender.flush_compressed_chunks");
+
+    for prepared in compress_queue.receiver.drain() {
+        let Some(client) = clients.get(&prepared.client_id) else {
+            continue;
+        };
+        if !network_container.is_connected(client) {
+            continue;
+        }
+        client.send_message(NetworkMessageType::WorldInfo, &prepared.message);
     }
 }

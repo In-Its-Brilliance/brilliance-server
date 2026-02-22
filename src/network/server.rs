@@ -8,7 +8,7 @@ use super::events::{
     on_resources_has_cache::{on_resources_has_cache, ResourcesHasCacheEvent},
     on_settings_loaded::{on_settings_loaded, PlayerSettingsLoadedEvent},
 };
-use crate::network::chunks_sender::send_chunks;
+use crate::network::chunks_sender::{send_chunks, flush_compressed_chunks, ChunkCompressQueue};
 use crate::network::client_network::ClientNetwork;
 use crate::network::clients_container::ClientsContainer;
 use crate::network::sync_players::PlayerSpawnEvent;
@@ -29,6 +29,8 @@ use bevy_ecs::{
 };
 use flume::{Receiver, Sender};
 use lazy_static::lazy_static;
+use common::timed_lock;
+use common::utils::debug::SmartRwLock;
 use network::messages::{ClientMessages, NetworkMessageType, ServerMessages};
 use network::server::{ConnectionMessages, IServerConnection, IServerNetwork};
 use network::NetworkServer;
@@ -43,7 +45,7 @@ lazy_static! {
 
 #[derive(Resource)]
 pub struct NetworkContainer {
-    server_network: Box<NetworkServer>,
+    server_network: SmartRwLock<NetworkServer>,
     runtime: tokio::runtime::Runtime,
 }
 
@@ -52,13 +54,13 @@ impl NetworkContainer {
         let io_loop = tokio::runtime::Runtime::new().unwrap();
         let network = io_loop.block_on(async { NetworkServer::new(ip_port).await });
         Self {
-            server_network: Box::new(network),
+            server_network: timed_lock!(network, "server_network"),
             runtime: tokio::runtime::Runtime::new().unwrap(),
         }
     }
 
     pub fn is_connected(&self, client: &ClientNetwork) -> bool {
-        let network = self.server_network.as_ref();
+        let network = self.server_network.read();
         network.is_connected(client.get_connection())
     }
 }
@@ -75,6 +77,7 @@ impl NetworkPlugin {
 
         app.insert_resource(NetworkContainer::new(ip_port));
         app.insert_resource(ClientsContainer::default());
+        app.insert_resource(ChunkCompressQueue::default());
 
         app.add_systems(Update, receive_message_system);
         app.add_systems(Update, handle_events_system);
@@ -84,6 +87,7 @@ impl NetworkPlugin {
                 .after(handle_events_system)
                 .run_if(on_timer(SEND_CHUNKS_DELAY)),
         );
+        app.add_systems(Update, flush_compressed_chunks.after(handle_events_system));
 
         app.add_systems(Update, console_client_command_event);
 
@@ -157,7 +161,7 @@ fn receive_message_system(
     let _span = bevy_utils::tracing::info_span!("server.receive_message_system").entered();
     let _s = crate::span!("server.receive_message_system");
 
-    let network = network_container.server_network.as_ref();
+    let network = network_container.server_network.read();
 
     {
         let _s = crate::span!("server.receive_message_system::network_step");
@@ -238,7 +242,7 @@ fn handle_events_system(
     mut disconnection_events: MessageWriter<PlayerDisconnectEvent>,
 ) {
     let _s = crate::span!("server.handle_events_system");
-    let network = network_container.server_network.as_ref();
+    let network = network_container.server_network.read();
 
     for connection in network.drain_connections() {
         match connection {
