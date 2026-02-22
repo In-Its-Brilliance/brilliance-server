@@ -221,6 +221,7 @@ fn receive_message_system(
 
 #[allow(unused_mut)]
 fn console_client_command_event(world: &mut World) {
+    let _s = crate::span!("server.console_client_command_event");
     world.resource_scope(|world, mut clients: Mut<ClientsContainer>| {
         for (client_id, command) in CONSOLE_INPUT.1.try_iter() {
             let client = clients.get(&client_id).unwrap();
@@ -236,6 +237,7 @@ fn handle_events_system(
     mut connection_events: MessageWriter<PlayerConnectionEvent>,
     mut disconnection_events: MessageWriter<PlayerDisconnectEvent>,
 ) {
+    let _s = crate::span!("server.handle_events_system");
     let network = network_container.server_network.as_ref();
 
     for connection in network.drain_connections() {

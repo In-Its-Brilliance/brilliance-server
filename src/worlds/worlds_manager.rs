@@ -134,6 +134,7 @@ impl<'a> std::ops::DerefMut for WorldRefMultiMut<'a> {
 }
 
 pub fn update_world_chunks(worlds_manager: Res<WorldsManager>, time: Res<Time>, plugins_manager: Res<PluginsManager>) {
+    let _s = crate::span!("worlds.update_world_chunks");
     if RuntimePlugin::is_stopped() {
         return;
     }

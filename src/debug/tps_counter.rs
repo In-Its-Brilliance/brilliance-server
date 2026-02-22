@@ -31,6 +31,7 @@ pub(crate) fn tps_counter_init(mut commands: Commands) {
 }
 
 pub(crate) fn tps_counter_system(time: Res<Time>, mut counter: ResMut<TpsCounter>) {
+    let _s = crate::span!("debug.tps_counter_system");
     counter.ticks += 1;
     counter.timer.tick(time.delta());
 

@@ -9,7 +9,7 @@ use crate::{
 };
 use bevy::prelude::{Commands, Res};
 use bevy_ecs::message::{Message, MessageReader};
-use network::messages::{NetworkEntitySkin, NetworkEntityTag};
+use network::entities::{entity_tag::EntityTagData, EntitySkinData};
 
 use crate::worlds::{commands::SpawnPlayer, worlds_manager::WorldsManager};
 
@@ -29,6 +29,7 @@ pub fn on_settings_loaded(
     mut events: MessageReader<PlayerSettingsLoadedEvent>,
     worlds_manager: Res<WorldsManager>,
 ) {
+    let _s = crate::span!("events.on_settings_loaded");
     for event in events.read() {
         let default_world = "default".to_string();
         if !worlds_manager.has_world_with_slug(&default_world) {
@@ -37,16 +38,11 @@ pub fn on_settings_loaded(
 
         let mut components: Vec<EntityComponent> = Default::default();
 
-        let skin = EntitySkinComponent::create(NetworkEntitySkin::Generic);
+        let skin = EntitySkinComponent::create(EntitySkinData::Fixed("test://godot_robot.glb".into()));
         components.push(EntityComponent::Skin(Some(skin)));
 
         let client_info = event.client.get_client_info().unwrap();
-        let tag = EntityTagComponent::create(NetworkEntityTag::create(
-            client_info.get_login().clone(),
-            2.1,
-            32,
-            3,
-        ));
+        let tag = EntityTagComponent::create(EntityTagData::create(client_info.get_login().clone(), None, None, None));
         components.push(EntityComponent::Tag(Some(tag)));
 
         commands.queue(SpawnPlayer::create(

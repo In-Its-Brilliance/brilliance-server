@@ -82,6 +82,7 @@ fn update_runtime(
     mut plugins_manager: ResMut<PluginsManager>,
     worlds_manager: Res<WorldsManager>,
 ) {
+    let _s = crate::span!("runtime.update_runtime");
     if RuntimePlugin::is_stopping() {
         log::info!(target: "main", "Server shutdown...");
         clients.disconnect_all(Some("Server shutting down".to_string()));

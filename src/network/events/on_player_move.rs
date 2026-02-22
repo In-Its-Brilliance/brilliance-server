@@ -31,6 +31,7 @@ pub fn on_player_move(
     worlds_manager: ResMut<WorldsManager>,
     time: Res<Time>,
 ) {
+    let _s = crate::span!("events.on_player_move");
     let server_time = time.elapsed().as_secs_f32();
     for event in player_move_events.read() {
         let world_entity = event.client.get_world_entity();

@@ -1,5 +1,5 @@
 use entity_tag::EntityTagComponent;
-use network::entities::EntityNetworkComponent;
+use network::entities::{EntityNetworkComponent, EntitySkinData};
 use skin::EntitySkinComponent;
 use strum_macros::EnumIter;
 use traits::IEntityNetworkComponent;
@@ -23,11 +23,11 @@ impl EntityComponent {
         match self {
             EntityComponent::Tag(c) => match c {
                 Some(c) => c.to_network(),
-                None => EntityNetworkComponent::Skin(None),
+                None => EntityNetworkComponent::Skin(EntitySkinData::None),
             },
             EntityComponent::Skin(c) => match c {
                 Some(c) => c.to_network(),
-                None => EntityNetworkComponent::Skin(None),
+                None => EntityNetworkComponent::Skin(EntitySkinData::None),
             },
         }
     }

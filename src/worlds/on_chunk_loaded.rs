@@ -16,6 +16,7 @@ pub fn on_chunk_loaded(
     network_container: Res<NetworkContainer>,
     mut player_spawn_events: MessageWriter<PlayerSpawnEvent>,
 ) {
+    let _s = crate::span!("worlds.on_chunk_loaded");
     if RuntimePlugin::is_stopped() {
         return;
     }

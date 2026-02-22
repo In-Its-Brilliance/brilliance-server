@@ -1,13 +1,13 @@
 use bevy::prelude::Component;
-use network::{entities::EntityNetworkComponent, messages::NetworkEntityTag};
+use network::entities::{entity_tag::EntityTagData, EntityNetworkComponent};
 
 use super::traits::IEntityNetworkComponent;
 
 #[derive(Component, Clone)]
-pub struct EntityTagComponent(NetworkEntityTag);
+pub struct EntityTagComponent(EntityTagData);
 
 impl EntityTagComponent {
-    pub fn create(tag: NetworkEntityTag) -> Self {
+    pub fn create(tag: EntityTagData) -> Self {
         Self(tag)
     }
 }

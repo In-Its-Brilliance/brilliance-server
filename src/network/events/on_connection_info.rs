@@ -44,6 +44,7 @@ pub fn on_connection_info(
     mut player_media_loaded_events: MessageWriter<PlayerMediaLoadedEvent>,
     clients: Res<ClientsContainer>,
 ) {
+    let _s = crate::span!("events.on_connection_info");
     if RuntimePlugin::is_stopped() {
         return;
     }

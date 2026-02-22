@@ -27,6 +27,7 @@ pub fn on_media_loaded(
     server_settings: Res<ServerSettings>,
     plugins_manager: Res<PluginsManager>,
 ) {
+    let _s = crate::span!("events.on_media_loaded");
     if RuntimePlugin::is_stopped() {
         return;
     }

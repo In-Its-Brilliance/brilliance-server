@@ -14,6 +14,7 @@ impl PlayerConnectionEvent {
 }
 
 pub fn on_connection(mut connection_events: MessageReader<PlayerConnectionEvent>) {
+    let _s = crate::span!("events.on_connection");
     for event in connection_events.read() {
         event.client.send_allow_connection();
     }

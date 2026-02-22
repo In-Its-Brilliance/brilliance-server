@@ -26,6 +26,7 @@ pub fn on_disconnect(
     mut clients: ResMut<ClientsContainer>,
     worlds_manager: Res<WorldsManager>,
 ) {
+    let _s = crate::span!("events.on_disconnect");
     for event in disconnection_events.read() {
         if let Some(i) = event.client.get_client_info() {
             log::info!(

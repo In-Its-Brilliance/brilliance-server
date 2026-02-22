@@ -27,6 +27,7 @@ pub fn on_resources_has_cache(
     plugins_manager: Res<PluginsManager>,
     mut player_media_loaded_events: MessageWriter<PlayerMediaLoadedEvent>,
 ) {
+    let _s = crate::span!("events.on_resources_has_cache");
     if RuntimePlugin::is_stopped() {
         return;
     }

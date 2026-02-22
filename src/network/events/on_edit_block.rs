@@ -36,6 +36,7 @@ pub fn on_edit_block(
     mut edit_block_events: MessageReader<EditBlockEvent>,
     worlds_manager: ResMut<WorldsManager>,
 ) {
+    let _s = crate::span!("events.on_edit_block");
     for event in edit_block_events.read() {
         let world_entity = event.client.get_world_entity();
         let world_entity = match world_entity.as_ref() {

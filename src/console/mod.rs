@@ -31,6 +31,7 @@ impl Plugin for ConsolePlugin {
 }
 
 fn handler_console_input(world: &mut World) {
+    let _s = crate::span!("console.handler_console_input");
     for command in ConsoleHandler::iter_commands() {
         let sender = Console::default();
         CommandsHandler::execute_command(world, Box::new(sender), &command);
@@ -38,6 +39,7 @@ fn handler_console_input(world: &mut World) {
 }
 
 fn handler_console_complete(world: &mut World) {
+    let _s = crate::span!("console.handler_console_complete");
     for request in CustomCompleter::iter_complere_requests() {
         let sender = Console::default();
         let complete_response = CommandsHandler::complete(world, Box::new(sender), &request);
