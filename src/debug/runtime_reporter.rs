@@ -1,10 +1,14 @@
 use common::utils::debug::format_grouped_lines::format_grouped_lines;
 use common::utils::debug::runtime_storage::SpansType;
-use std::time::Duration;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 use crate::network::runtime_plugin::RuntimePlugin;
 
 const SPIKE_THRESHOLD: Duration = Duration::from_millis(10);
+const SPIKE_LOG_COOLDOWN: Duration = Duration::from_secs(10);
+
+static LAST_SPIKE_LOG: Mutex<Option<Instant>> = Mutex::new(None);
 
 macro_rules! spike_template {
     () => {
@@ -34,6 +38,16 @@ impl RuntimeReporter {
 
         if total_root < SPIKE_THRESHOLD {
             return;
+        }
+
+        {
+            let mut last = LAST_SPIKE_LOG.lock().unwrap();
+            if let Some(instant) = *last {
+                if instant.elapsed() < SPIKE_LOG_COOLDOWN {
+                    return;
+                }
+            }
+            *last = Some(Instant::now());
         }
 
         let mut items: Vec<(&'static str, Duration, Duration)> = spans

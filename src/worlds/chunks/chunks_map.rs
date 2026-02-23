@@ -16,9 +16,11 @@ use common::{
     WorldStorageManager, VERTICAL_SECTIONS,
 };
 use parking_lot::{RwLock, RwLockReadGuard};
-use std::{sync::Arc, time::Duration};
+use std::{sync::Arc, time::{Duration, Instant}};
 
 use super::{chunk_column::ChunkColumn, chunks_load_state::ChunksLoadState};
+
+const MAX_DESPAWN_DURATION: Duration = Duration::from_millis(2);
 
 pub type MapChunksType = AHashMap<ChunkPosition, Arc<RwLock<ChunkColumn>>>;
 
@@ -235,25 +237,37 @@ impl ChunkMap {
         }
 
         // Despawn chunks waiting for despawn
+        let despawn_start = Instant::now();
         self.chunks.retain(|&chunk, chunk_column| {
-            let chunk_column = chunk_column.read();
-            let for_despawn = chunk_column.is_for_despawn(CHUNKS_DESPAWN_TIMER);
-            if for_despawn {
-                log::trace!(target: "chunks", "Chunk {} despawned", chunk);
+            if despawn_start.elapsed() >= MAX_DESPAWN_DURATION {
+                return true; // Defer remaining despawns to next tick
+            }
 
-                let sections = chunk_column.get_sections();
-                let save_chunk_data = self
-                    .storage
-                    .read()
-                    .save_chunk_data(chunk_column.get_chunk_position(), &sections.compress());
-                if let Err(e) = save_chunk_data {
+            let chunk_column = chunk_column.read();
+            if !chunk_column.is_for_despawn(CHUNKS_DESPAWN_TIMER) {
+                return true;
+            }
+
+            log::trace!(target: "chunks", "Chunk {} despawned", chunk);
+
+            let sections = chunk_column.get_sections().clone();
+            let chunk_position = *chunk_column.get_chunk_position();
+            let storage = self.storage.clone();
+
+            rayon::spawn(move || {
+                if RuntimePlugin::is_stopped() {
+                    return;
+                }
+
+                let compressed = sections.compress();
+                if let Err(e) = storage.read().save_chunk_data(&chunk_position, &compressed) {
                     log::error!(target: "worlds", "&cChunk save error!");
                     log::error!(target: "worlds", "Error: {}", e);
                     RuntimePlugin::stop();
-                    panic!("Chunk save error: {}", e);
                 }
-            }
-            !for_despawn
+            });
+
+            false
         });
 
         // Send to load new chunks

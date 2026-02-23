@@ -1,3 +1,4 @@
+use ahash::AHashSet;
 use bevy::prelude::{Component, Entity};
 use common::{chunks::chunk_position::ChunkPosition, utils::vec_remove_item};
 use core::fmt;
@@ -170,6 +171,22 @@ impl ClientNetwork {
     /// for confirmation that they have reached the client
     pub fn is_queue_limit(&self) -> bool {
         self.send_chunk_queue.read().len() >= SEND_CHUNK_QUEUE_LIMIT
+    }
+
+    /// Total count of confirmed + queued chunks (2 locks total)
+    pub fn count_already_sended(&self) -> usize {
+        self.confirmed_chunks.read().len() + self.send_chunk_queue.read().len()
+    }
+
+    /// Snapshot confirmed + queued chunks into a single HashSet (2 locks total)
+    pub fn snapshot_already_sended(&self) -> (AHashSet<ChunkPosition>, usize) {
+        let confirmed = self.confirmed_chunks.read();
+        let queue = self.send_chunk_queue.read();
+        let queue_len = queue.len();
+        let mut set = AHashSet::with_capacity(confirmed.len() + queue_len);
+        set.extend(confirmed.iter().copied());
+        set.extend(queue.iter().copied());
+        (set, queue_len)
     }
 
     /// Called when the player has sent a confirmation of receiving chunk data

@@ -39,6 +39,10 @@ impl log::Log for ConsoleLogger {
         if metadata.target() == "rustyline" {
             return false;
         }
+        #[cfg(not(debug_assertions))]
+        if metadata.target().starts_with("renetcode") {
+            return false;
+        }
         metadata.level() <= log::max_level()
     }
 

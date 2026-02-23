@@ -1,8 +1,9 @@
 use crate::{
     entities::entity::Position,
     worlds::{world_manager::WorldManager, worlds_manager::WorldsManager},
-    CHUNKS_DISTANCE,
+    CHUNKS_DISTANCE, SEND_CHUNK_QUEUE_LIMIT,
 };
+use ahash::AHashSet;
 use bevy_ecs::{resource::Resource, system::Res};
 use common::{
     chunks::{block_position::BlockPositionTrait, chunk_position::ChunkPosition},
@@ -75,13 +76,8 @@ pub fn send_chunks(
             None => continue, // player is not watching any chunks
         };
 
-        // check if there is at least one chunk not sent yet
-        let has_not_sent = player_watching_chunks
-            .iter()
-            .any(|chunk_position| !network_client.is_already_sended(chunk_position));
-
-        // skip if all chanks are sent
-        if !has_not_sent {
+        // skip if all chunks are sent (2 locks total instead of per-chunk)
+        if network_client.count_already_sended() >= player_watching_chunks.len() {
             continue;
         }
 
@@ -108,24 +104,30 @@ fn send_chunks_to_client(
         .expect("player inside world must have position");
     let center = position.get_chunk_position();
 
+    // Build HashSet for O(1) watching check
+    let watching_set: AHashSet<ChunkPosition> = player_watching_chunks.iter().copied().collect();
+
+    // Snapshot already-sent chunks once (2 locks total instead of per-iteration)
+    let (mut already_sent, mut queue_count) = network_client.snapshot_already_sended();
+
     // iterate chunks in spiral order around the player
     let iter = SpiralIterator::new(center.x as i64, center.z as i64, CHUNKS_DISTANCE as i64);
 
     for (x, z) in iter {
         // stop sending if queue limit is reached
-        if network_client.is_queue_limit() {
+        if queue_count >= SEND_CHUNK_QUEUE_LIMIT {
             return;
         }
 
         let chunk_position = ChunkPosition::new(x, z);
 
-        // skip chunks the player is not watching
-        if !player_watching_chunks.contains(&chunk_position) {
+        // skip chunks the player is not watching (O(1) HashSet lookup)
+        if !watching_set.contains(&chunk_position) {
             continue;
         }
 
-        // skip already sent chunks
-        if network_client.is_already_sended(&chunk_position) {
+        // skip already sent chunks (O(1) local HashSet lookup, no locks)
+        if already_sent.contains(&chunk_position) {
             continue;
         }
 
@@ -142,6 +144,8 @@ fn send_chunks_to_client(
 
         // mark as queued immediately to prevent re-picking
         network_client.mark_chunk_sending(&chunk_position);
+        already_sent.insert(chunk_position);
+        queue_count += 1;
 
         // spawn compression task in rayon threadpool
         let sender = sender.clone();

@@ -8,7 +8,7 @@ use super::events::{
     on_resources_has_cache::{on_resources_has_cache, ResourcesHasCacheEvent},
     on_settings_loaded::{on_settings_loaded, PlayerSettingsLoadedEvent},
 };
-use crate::network::chunks_sender::{send_chunks, flush_compressed_chunks, ChunkCompressQueue};
+use crate::network::chunks_sender::{flush_compressed_chunks, send_chunks, ChunkCompressQueue};
 use crate::network::client_network::ClientNetwork;
 use crate::network::clients_container::ClientsContainer;
 use crate::network::sync_players::PlayerSpawnEvent;
@@ -27,10 +27,10 @@ use bevy_ecs::{
     system::{Res, ResMut},
     world::World,
 };
-use flume::{Receiver, Sender};
-use lazy_static::lazy_static;
 use common::timed_lock;
 use common::utils::debug::SmartRwLock;
+use flume::{Receiver, Sender};
+use lazy_static::lazy_static;
 use network::messages::{ClientMessages, NetworkMessageType, ServerMessages};
 use network::server::{ConnectionMessages, IServerConnection, IServerNetwork};
 use network::NetworkServer;
@@ -129,19 +129,12 @@ impl NetworkPlugin {
 fn span_name_for_client_message(msg: &ClientMessages) -> &'static str {
     match msg {
         ClientMessages::ConnectionInfo { .. } => "server.receive_message_system::ConnectionInfo",
-
         ClientMessages::ConsoleInput { .. } => "server.receive_message_system::ConsoleInput",
-
         ClientMessages::PlayerMove { .. } => "server.receive_message_system::PlayerMove",
-
         ClientMessages::ChunkRecieved { .. } => "server.receive_message_system::ChunkRecieved",
-
         ClientMessages::EditBlockRequest { .. } => "server.receive_message_system::EditBlockRequest",
-
         ClientMessages::ResourcesHasCache { .. } => "server.receive_message_system::ResourcesHasCache",
-
         ClientMessages::ResourcesLoaded { .. } => "server.receive_message_system::ResourcesLoaded",
-
         ClientMessages::SettingsLoaded => "server.receive_message_system::SettingsLoaded",
     }
 }
