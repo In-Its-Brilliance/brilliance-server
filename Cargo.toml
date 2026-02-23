@@ -9,6 +9,8 @@ default = []
 
 trace = []
 
+deadlock_detection = ["parking_lot/deadlock_detection"]
+
 [dependencies]
 common = { git = "https://github.com/In-Its-Brilliance/brilliance-common", features = ["wasm-plugin", "full"] }
 network = { git = "https://github.com/In-Its-Brilliance/brilliance-network" }

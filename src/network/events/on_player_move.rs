@@ -1,10 +1,12 @@
 use bevy::time::Time;
-use bevy_ecs::message::{Message, MessageReader};
+use bevy_ecs::message::Message;
 use bevy_ecs::system::{Res, ResMut};
 use common::chunks::block_position::BlockPositionTrait;
+use common::utils::events::EventReader;
 
 use crate::entities::entity::Rotation;
 use crate::network::client_network::{ClientNetwork, WorldEntity};
+use crate::network::server::NetworkEventListener;
 use crate::network::sync_players::sync_player_move;
 use crate::worlds::world_manager::WorldManager;
 use crate::{entities::entity::Position, worlds::worlds_manager::WorldsManager};
@@ -27,13 +29,13 @@ impl PlayerMoveEvent {
 }
 
 pub fn on_player_move(
-    mut player_move_events: MessageReader<PlayerMoveEvent>,
+    player_move_events: Res<NetworkEventListener<PlayerMoveEvent>>,
     worlds_manager: ResMut<WorldsManager>,
     time: Res<Time>,
 ) {
     let _s = crate::span!("events.on_player_move");
     let server_time = time.elapsed().as_secs_f32();
-    for event in player_move_events.read() {
+    for event in player_move_events.0.iter_events() {
         let world_entity = event.client.get_world_entity();
         let world_entity = match world_entity.as_ref() {
             Some(w) => w,

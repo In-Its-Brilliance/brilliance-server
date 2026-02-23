@@ -9,6 +9,8 @@ use crate::{
     logger::{TracingToLogLayer, CONSOLE_LOGGER},
     network::{runtime_plugin::RuntimePlugin, server::NetworkPlugin},
 };
+#[cfg(all(debug_assertions, feature = "deadlock_detection"))]
+use debug::start_deadlock_detector;
 use debug::DebugPlugin;
 use launch_settings::{get_log_level, LaunchSettings};
 use plugins::PluginApp;
@@ -49,6 +51,9 @@ fn main() {
         .with(TracingToLogLayer)
         .with(tracing_level);
     tracing::subscriber::set_global_default(subscriber).unwrap();
+
+    #[cfg(all(debug_assertions, feature = "deadlock_detection"))]
+    start_deadlock_detector();
 
     print_logo(VERSION);
     log::debug!(target: "main", "Log level using: {}", log_level);

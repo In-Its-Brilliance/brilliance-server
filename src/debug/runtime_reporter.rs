@@ -5,7 +5,6 @@ use std::time::{Duration, Instant};
 
 use crate::network::runtime_plugin::RuntimePlugin;
 
-const SPIKE_THRESHOLD: Duration = Duration::from_millis(10);
 const SPIKE_LOG_COOLDOWN: Duration = Duration::from_secs(10);
 
 static LAST_SPIKE_LOG: Mutex<Option<Instant>> = Mutex::new(None);
@@ -30,13 +29,15 @@ impl RuntimeReporter {
             return;
         }
 
+        let tick_budget = Duration::from_secs_f64(1.0 / *tps as f64);
+
         let total_root: Duration = spans
             .iter()
             .filter(|(name, _)| !name.contains("::"))
             .map(|(_, (_, _, last))| *last)
             .sum();
 
-        if total_root < SPIKE_THRESHOLD {
+        if total_root < tick_budget {
             return;
         }
 

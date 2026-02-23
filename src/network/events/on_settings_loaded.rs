@@ -8,9 +8,11 @@ use crate::{
     network::client_network::ClientNetwork,
 };
 use bevy::prelude::{Commands, Res};
-use bevy_ecs::message::{Message, MessageReader};
+use bevy_ecs::message::Message;
+use common::utils::events::EventReader;
 use network::entities::{entity_tag::EntityTagData, EntitySkinData};
 
+use crate::network::server::NetworkEventListener;
 use crate::worlds::{commands::SpawnPlayer, worlds_manager::WorldsManager};
 
 #[derive(Message)]
@@ -26,11 +28,11 @@ impl PlayerSettingsLoadedEvent {
 
 pub fn on_settings_loaded(
     mut commands: Commands,
-    mut events: MessageReader<PlayerSettingsLoadedEvent>,
+    events: Res<NetworkEventListener<PlayerSettingsLoadedEvent>>,
     worlds_manager: Res<WorldsManager>,
 ) {
     let _s = crate::span!("events.on_settings_loaded");
-    for event in events.read() {
+    for event in events.0.iter_events() {
         let default_world = "default".to_string();
         if !worlds_manager.has_world_with_slug(&default_world) {
             panic!("default world is not found");

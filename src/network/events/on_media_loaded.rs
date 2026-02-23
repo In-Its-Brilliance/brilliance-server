@@ -1,9 +1,10 @@
 use bevy::prelude::Res;
-use bevy_ecs::message::{Message, MessageReader};
+use bevy_ecs::message::Message;
+use common::utils::events::EventReader;
 use network::messages::{NetworkMessageType, ServerMessages};
 
 use crate::{
-    network::{client_network::ClientNetwork, runtime_plugin::RuntimePlugin},
+    network::{client_network::ClientNetwork, runtime_plugin::RuntimePlugin, server::NetworkEventListener},
     plugins::{plugins_manager::PluginsManager, resources_archive::ARCHIVE_CHUNK_SIZE, server_settings::ServerSettings},
 };
 
@@ -23,7 +24,7 @@ impl PlayerMediaLoadedEvent {
 }
 
 pub fn on_media_loaded(
-    mut events: MessageReader<PlayerMediaLoadedEvent>,
+    events: Res<NetworkEventListener<PlayerMediaLoadedEvent>>,
     server_settings: Res<ServerSettings>,
     plugins_manager: Res<PluginsManager>,
 ) {
@@ -33,7 +34,7 @@ pub fn on_media_loaded(
     }
 
     let resources_archive = plugins_manager.get_resources_archive();
-    for event in events.read() {
+    for event in events.0.iter_events() {
         match event.last_index {
             Some(index) => {
                 let total = resources_archive.get_archive_parts_count(ARCHIVE_CHUNK_SIZE);

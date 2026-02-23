@@ -1,7 +1,6 @@
 use bevy_ecs::message::Message;
-use bevy_ecs::message::MessageReader;
-use bevy_ecs::message::MessageWriter;
 use bevy_ecs::system::Res;
+use common::utils::events::{EventInterface, EventReader};
 use network::messages::{NetworkMessageType, ServerMessages};
 
 use crate::network::client_network::ClientInfo;
@@ -9,6 +8,7 @@ use crate::network::client_network::ClientNetwork;
 use crate::network::clients_container::ClientsContainer;
 use crate::network::events::on_media_loaded::PlayerMediaLoadedEvent;
 use crate::network::runtime_plugin::RuntimePlugin;
+use crate::network::server::{NetworkEventChannel, NetworkEventListener};
 use crate::plugins::plugins_manager::PluginsManager;
 
 #[derive(Message)]
@@ -39,9 +39,9 @@ impl PlayerConnectionInfoEvent {
 }
 
 pub fn on_connection_info(
-    mut connection_info_events: MessageReader<PlayerConnectionInfoEvent>,
+    connection_info_events: Res<NetworkEventListener<PlayerConnectionInfoEvent>>,
     plugins_manager: Res<PluginsManager>,
-    mut player_media_loaded_events: MessageWriter<PlayerMediaLoadedEvent>,
+    player_media_loaded_channel: Res<NetworkEventChannel<PlayerMediaLoadedEvent>>,
     clients: Res<ClientsContainer>,
 ) {
     let _s = crate::span!("events.on_connection_info");
@@ -49,7 +49,7 @@ pub fn on_connection_info(
         return;
     }
 
-    for event in connection_info_events.read() {
+    for event in connection_info_events.0.iter_events() {
 
         for (client_id, client) in clients.iter() {
             if *client_id != event.client.get_client_id() {
@@ -89,7 +89,7 @@ pub fn on_connection_info(
             // Or send player as loaded
 
             let msg = PlayerMediaLoadedEvent::new(event.client.clone(), None);
-            player_media_loaded_events.write(msg);
+            player_media_loaded_channel.0.emit_event(msg);
         }
     }
 }

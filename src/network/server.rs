@@ -1,3 +1,23 @@
+use bevy::time::common_conditions::on_timer;
+use bevy_app::{App, Update};
+use bevy_ecs::change_detection::Mut;
+use bevy_ecs::resource::Resource;
+use bevy_ecs::schedule::IntoScheduleConfigs;
+use bevy_ecs::{
+    system::{Res, ResMut},
+    world::World,
+};
+use common::timed_lock;
+use common::utils::debug::SmartRwLock;
+use common::utils::events::event_channel::{ChannelReader, EventChannel};
+use common::utils::events::EventInterface;
+use flume::{Receiver, Sender};
+use lazy_static::lazy_static;
+use network::messages::{ClientMessages, NetworkMessageType, ServerMessages};
+use network::server::{ConnectionMessages, IServerConnection, IServerNetwork};
+use network::NetworkServer;
+use std::sync::Arc;
+
 use super::events::{
     on_connection::{on_connection, PlayerConnectionEvent},
     on_connection_info::{on_connection_info, PlayerConnectionInfoEvent},
@@ -18,22 +38,6 @@ use crate::{
     entities::entity::{IntoServerPosition, IntoServerRotation},
     network::console_commands::{command_kick, command_parser_kick},
 };
-use bevy::time::{common_conditions::on_timer, Time};
-use bevy_app::{App, Update};
-use bevy_ecs::resource::Resource;
-use bevy_ecs::schedule::IntoScheduleConfigs;
-use bevy_ecs::{change_detection::Mut, message::MessageWriter};
-use bevy_ecs::{
-    system::{Res, ResMut},
-    world::World,
-};
-use common::timed_lock;
-use common::utils::debug::SmartRwLock;
-use flume::{Receiver, Sender};
-use lazy_static::lazy_static;
-use network::messages::{ClientMessages, NetworkMessageType, ServerMessages};
-use network::server::{ConnectionMessages, IServerConnection, IServerNetwork};
-use network::NetworkServer;
 
 const SEND_CHUNKS_DELAY: std::time::Duration = std::time::Duration::from_millis(10);
 
@@ -43,20 +47,61 @@ lazy_static! {
     static ref CONSOLE_INPUT: (Sender<(u64, String)>, Receiver<(u64, String)>) = flume::unbounded();
 }
 
+/// Holds an `EventChannel<T>` for emitting events (writer/sender side).
+///
+/// Systems that produce events take `Res<NetworkEventChannel<T>>` and call `.0.emit_event(...)`.
+#[derive(Resource)]
+pub struct NetworkEventChannel<T: Send + Sync + 'static>(pub EventChannel<T>);
+
+/// Holds a `ChannelReader<T>` for consuming events (reader/receiver side).
+///
+/// Handler systems take `Res<NetworkEventListener<T>>` and call `.0.iter_events()`.
+#[derive(Resource)]
+pub struct NetworkEventListener<T: Send + Sync + 'static>(pub ChannelReader<T>);
+
+fn register_network_event<T: Send + Sync + 'static>(app: &mut App) {
+    let mut channel = EventChannel::<T>::default();
+    let reader = channel.get_reader();
+    app.insert_resource(NetworkEventChannel(channel));
+    app.insert_resource(NetworkEventListener(reader));
+}
+
 #[derive(Resource)]
 pub struct NetworkContainer {
-    server_network: SmartRwLock<NetworkServer>,
-    runtime: tokio::runtime::Runtime,
+    server_network: Arc<SmartRwLock<NetworkServer>>,
 }
 
 impl NetworkContainer {
     pub fn new(ip_port: String) -> Self {
-        let io_loop = tokio::runtime::Runtime::new().unwrap();
-        let network = io_loop.block_on(async { NetworkServer::new(ip_port).await });
-        Self {
-            server_network: timed_lock!(network, "server_network"),
-            runtime: tokio::runtime::Runtime::new().unwrap(),
-        }
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let network = rt.block_on(async { NetworkServer::new(ip_port).await });
+        let server_network = Arc::new(timed_lock!(network, "server_network"));
+
+        let net_clone = Arc::clone(&server_network);
+        std::thread::Builder::new()
+            .name("network-step".into())
+            .spawn(move || {
+                let mut last_instant = std::time::Instant::now();
+                loop {
+                    let now = std::time::Instant::now();
+                    let delta = now - last_instant;
+                    last_instant = now;
+
+                    if delta > std::time::Duration::from_millis(100) {
+                        log::warn!(target: "network", "Network step thread lag: {:.2?}", delta);
+                    }
+
+                    {
+                        let net = net_clone.read();
+                        rt.block_on(net.step(delta));
+                    }
+
+                    std::thread::sleep(std::time::Duration::from_millis(1));
+                }
+            })
+            .expect("failed to spawn network-step thread");
+
+        Self { server_network }
     }
 
     pub fn is_connected(&self, client: &ClientNetwork) -> bool {
@@ -79,42 +124,40 @@ impl NetworkPlugin {
         app.insert_resource(ClientsContainer::default());
         app.insert_resource(ChunkCompressQueue::default());
 
-        app.add_systems(Update, receive_message_system);
-        app.add_systems(Update, handle_events_system);
+        // Register flume-based event channels
+        register_network_event::<ResourcesHasCacheEvent>(app);
+        register_network_event::<PlayerConnectionEvent>(app);
+        register_network_event::<PlayerConnectionInfoEvent>(app);
+        register_network_event::<PlayerDisconnectEvent>(app);
+        register_network_event::<PlayerMoveEvent>(app);
+        register_network_event::<EditBlockEvent>(app);
+        register_network_event::<PlayerMediaLoadedEvent>(app);
+        register_network_event::<PlayerSettingsLoadedEvent>(app);
+
+        // Core drain system (replaces receive_message_system + handle_events_system)
+        app.add_systems(Update, drain_network_system);
+
         app.add_systems(
             Update,
             send_chunks
-                .after(handle_events_system)
+                .after(drain_network_system)
                 .run_if(on_timer(SEND_CHUNKS_DELAY)),
         );
-        app.add_systems(Update, flush_compressed_chunks.after(handle_events_system));
+        app.add_systems(Update, flush_compressed_chunks.after(drain_network_system));
 
         app.add_systems(Update, console_client_command_event);
 
-        app.add_message::<ResourcesHasCacheEvent>();
-        app.add_systems(Update, on_resources_has_cache.after(handle_events_system));
+        // Handler systems — all ordered after drain_network_system
+        app.add_systems(Update, on_resources_has_cache.after(drain_network_system));
+        app.add_systems(Update, on_connection.after(drain_network_system));
+        app.add_systems(Update, on_connection_info.after(drain_network_system));
+        app.add_systems(Update, on_disconnect.after(drain_network_system));
+        app.add_systems(Update, on_player_move.after(drain_network_system));
+        app.add_systems(Update, on_edit_block.after(drain_network_system));
+        app.add_systems(Update, on_media_loaded.after(drain_network_system));
+        app.add_systems(Update, on_settings_loaded.after(drain_network_system));
 
-        app.add_message::<PlayerConnectionEvent>();
-        app.add_systems(Update, on_connection.after(handle_events_system));
-
-        app.add_message::<PlayerConnectionInfoEvent>();
-        app.add_systems(Update, on_connection_info.after(handle_events_system));
-
-        app.add_message::<PlayerDisconnectEvent>();
-        app.add_systems(Update, on_disconnect.after(handle_events_system));
-
-        app.add_message::<PlayerMoveEvent>();
-        app.add_systems(Update, on_player_move.after(handle_events_system));
-
-        app.add_message::<EditBlockEvent>();
-        app.add_systems(Update, on_edit_block.after(handle_events_system));
-
-        app.add_message::<PlayerMediaLoadedEvent>();
-        app.add_systems(Update, on_media_loaded.after(handle_events_system));
-
-        app.add_message::<PlayerSettingsLoadedEvent>();
-        app.add_systems(Update, on_settings_loaded.after(handle_events_system));
-
+        // PlayerSpawnEvent stays as Bevy Message (internal ECS event, not network)
         app.add_message::<PlayerSpawnEvent>();
         app.add_systems(Update, on_player_spawn);
     }
@@ -128,60 +171,81 @@ impl NetworkPlugin {
 #[cfg(debug_assertions)]
 fn span_name_for_client_message(msg: &ClientMessages) -> &'static str {
     match msg {
-        ClientMessages::ConnectionInfo { .. } => "server.receive_message_system::ConnectionInfo",
-        ClientMessages::ConsoleInput { .. } => "server.receive_message_system::ConsoleInput",
-        ClientMessages::PlayerMove { .. } => "server.receive_message_system::PlayerMove",
-        ClientMessages::ChunkRecieved { .. } => "server.receive_message_system::ChunkRecieved",
-        ClientMessages::EditBlockRequest { .. } => "server.receive_message_system::EditBlockRequest",
-        ClientMessages::ResourcesHasCache { .. } => "server.receive_message_system::ResourcesHasCache",
-        ClientMessages::ResourcesLoaded { .. } => "server.receive_message_system::ResourcesLoaded",
-        ClientMessages::SettingsLoaded => "server.receive_message_system::SettingsLoaded",
+        ClientMessages::ConnectionInfo { .. } => "server.drain_network_system::ConnectionInfo",
+        ClientMessages::ConsoleInput { .. } => "server.drain_network_system::ConsoleInput",
+        ClientMessages::PlayerMove { .. } => "server.drain_network_system::PlayerMove",
+        ClientMessages::ChunkRecieved { .. } => "server.drain_network_system::ChunkRecieved",
+        ClientMessages::EditBlockRequest { .. } => "server.drain_network_system::EditBlockRequest",
+        ClientMessages::ResourcesHasCache { .. } => "server.drain_network_system::ResourcesHasCache",
+        ClientMessages::ResourcesLoaded { .. } => "server.drain_network_system::ResourcesLoaded",
+        ClientMessages::SettingsLoaded => "server.drain_network_system::SettingsLoaded",
     }
 }
 
-fn receive_message_system(
+fn drain_network_system(
     network_container: Res<NetworkContainer>,
-    time: Res<Time>,
-    clients: Res<ClientsContainer>,
-    mut resources_has_cache_events: MessageWriter<ResourcesHasCacheEvent>,
-    mut connection_info_events: MessageWriter<PlayerConnectionInfoEvent>,
-    mut player_move_events: MessageWriter<PlayerMoveEvent>,
-    mut edit_block_events: MessageWriter<EditBlockEvent>,
-    mut player_media_loaded_events: MessageWriter<PlayerMediaLoadedEvent>,
-    mut settings_loaded_events: MessageWriter<PlayerSettingsLoadedEvent>,
+    mut clients: ResMut<ClientsContainer>,
+
+    connection_channel: Res<NetworkEventChannel<PlayerConnectionEvent>>,
+    disconnect_channel: Res<NetworkEventChannel<PlayerDisconnectEvent>>,
+    resources_has_cache_channel: Res<NetworkEventChannel<ResourcesHasCacheEvent>>,
+    connection_info_channel: Res<NetworkEventChannel<PlayerConnectionInfoEvent>>,
+    player_move_channel: Res<NetworkEventChannel<PlayerMoveEvent>>,
+    edit_block_channel: Res<NetworkEventChannel<EditBlockEvent>>,
+    player_media_loaded_channel: Res<NetworkEventChannel<PlayerMediaLoadedEvent>>,
+    settings_loaded_channel: Res<NetworkEventChannel<PlayerSettingsLoadedEvent>>,
 ) {
     #[cfg(feature = "trace")]
-    let _span = bevy_utils::tracing::info_span!("server.receive_message_system").entered();
-    let _s = crate::span!("server.receive_message_system");
+    let _span = bevy_utils::tracing::info_span!("server.drain_network_system").entered();
+    let _s = crate::span!("server.drain_network_system");
 
     let network = network_container.server_network.read();
 
-    {
-        let _s = crate::span!("server.receive_message_system::network_step");
-        network_container
-            .runtime
-            .block_on(async { network.step(time.delta()).await });
-    }
-
+    // --- Drain errors ---
     for message in network.drain_errors() {
         log::error!(target: "network", "Network error: {}", message);
     }
 
+    // --- Drain connections/disconnections FIRST ---
+    // (so new clients are added before we try to drain their messages)
+    {
+        let _s = crate::span!("server.drain_network_system::connections");
+        for connection in network.drain_connections() {
+            match connection {
+                ConnectionMessages::Connect { connection } => {
+                    clients.add(connection.clone());
+                    let client = clients.get(&connection.get_client_id()).unwrap();
+                    connection_channel
+                        .0
+                        .emit_event(PlayerConnectionEvent::new(client.clone()));
+                }
+                ConnectionMessages::Disconnect { client_id, reason } => {
+                    let client = clients.get(&client_id).unwrap();
+                    disconnect_channel
+                        .0
+                        .emit_event(PlayerDisconnectEvent::new(client.clone(), reason));
+                }
+            }
+        }
+    }
+
+    // --- Drain client messages ---
     for (client_id, client) in clients.iter() {
         for decoded in client.get_connection().drain_client_messages() {
+            #[cfg(debug_assertions)]
             let _s = crate::span!(span_name_for_client_message(&decoded));
             match decoded {
                 ClientMessages::ResourcesHasCache { exists } => {
                     let event = ResourcesHasCacheEvent::new(client.clone(), exists);
-                    resources_has_cache_events.write(event);
+                    resources_has_cache_channel.0.emit_event(event);
                 }
                 ClientMessages::ResourcesLoaded { last_index } => {
                     let msg = PlayerMediaLoadedEvent::new(client.clone(), Some(last_index));
-                    player_media_loaded_events.write(msg);
+                    player_media_loaded_channel.0.emit_event(msg);
                 }
                 ClientMessages::SettingsLoaded => {
                     let msg = PlayerSettingsLoadedEvent::new(client.clone());
-                    settings_loaded_events.write(msg);
+                    settings_loaded_channel.0.emit_event(msg);
                 }
                 ClientMessages::ConsoleInput { command } => {
                     CONSOLE_INPUT.0.send((*client_id, command)).unwrap();
@@ -191,7 +255,7 @@ fn receive_message_system(
                 }
                 ClientMessages::PlayerMove { position, rotation } => {
                     let movement = PlayerMoveEvent::new(client.clone(), position.to_server(), rotation.to_server());
-                    player_move_events.write(movement);
+                    player_move_channel.0.emit_event(movement);
                 }
                 ClientMessages::ConnectionInfo {
                     login,
@@ -201,7 +265,7 @@ fn receive_message_system(
                 } => {
                     let info =
                         PlayerConnectionInfoEvent::new(client.clone(), login, version, architecture, rendering_device);
-                    connection_info_events.write(info);
+                    connection_info_channel.0.emit_event(info);
                 }
                 ClientMessages::EditBlockRequest {
                     world_slug,
@@ -209,7 +273,7 @@ fn receive_message_system(
                     new_block_info,
                 } => {
                     let edit = EditBlockEvent::new(client.clone(), world_slug, position, new_block_info);
-                    edit_block_events.write(edit);
+                    edit_block_channel.0.emit_event(edit);
                 }
             }
         }
@@ -225,29 +289,4 @@ fn console_client_command_event(world: &mut World) {
             CommandsHandler::execute_command(world, Box::new(client.clone()), &command);
         }
     });
-}
-
-fn handle_events_system(
-    mut clients: ResMut<ClientsContainer>,
-    network_container: Res<NetworkContainer>,
-
-    mut connection_events: MessageWriter<PlayerConnectionEvent>,
-    mut disconnection_events: MessageWriter<PlayerDisconnectEvent>,
-) {
-    let _s = crate::span!("server.handle_events_system");
-    let network = network_container.server_network.read();
-
-    for connection in network.drain_connections() {
-        match connection {
-            ConnectionMessages::Connect { connection } => {
-                clients.add(connection.clone());
-                let client = clients.get(&connection.get_client_id()).unwrap();
-                connection_events.write(PlayerConnectionEvent::new(client.clone()));
-            }
-            ConnectionMessages::Disconnect { client_id, reason } => {
-                let client = clients.get(&client_id).unwrap();
-                disconnection_events.write(PlayerDisconnectEvent::new(client.clone(), reason));
-            }
-        }
-    }
 }

@@ -1,10 +1,12 @@
 use bevy::prelude::ResMut;
-use bevy_ecs::message::{Message, MessageReader};
+use bevy_ecs::message::Message;
+use bevy_ecs::system::Res;
 use common::chunks::{block_position::BlockPosition, chunk_data::BlockDataInfo};
+use common::utils::events::EventReader;
 use network::messages::{NetworkMessageType, ServerMessages};
 
 use crate::{
-    network::{client_network::ClientNetwork, sync_world_change::sync_world_block_change},
+    network::{client_network::ClientNetwork, server::NetworkEventListener, sync_world_change::sync_world_block_change},
     worlds::worlds_manager::WorldsManager,
 };
 
@@ -33,11 +35,11 @@ impl EditBlockEvent {
 }
 
 pub fn on_edit_block(
-    mut edit_block_events: MessageReader<EditBlockEvent>,
+    edit_block_events: Res<NetworkEventListener<EditBlockEvent>>,
     worlds_manager: ResMut<WorldsManager>,
 ) {
     let _s = crate::span!("events.on_edit_block");
-    for event in edit_block_events.read() {
+    for event in edit_block_events.0.iter_events() {
         let world_entity = event.client.get_world_entity();
         let world_entity = match world_entity.as_ref() {
             Some(w) => w,

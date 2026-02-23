@@ -1,11 +1,12 @@
 use bevy_ecs::{
-    message::{Message, MessageReader},
+    message::Message,
     system::{Res, ResMut},
 };
+use common::utils::events::EventReader;
 
 use crate::{
     entities::skin::EntitySkinComponent,
-    network::{client_network::ClientNetwork, clients_container::ClientsContainer, sync_entities::sync_entity_despawn},
+    network::{client_network::ClientNetwork, clients_container::ClientsContainer, server::NetworkEventListener, sync_entities::sync_entity_despawn},
     worlds::worlds_manager::WorldsManager,
 };
 
@@ -22,12 +23,12 @@ impl PlayerDisconnectEvent {
 }
 
 pub fn on_disconnect(
-    mut disconnection_events: MessageReader<PlayerDisconnectEvent>,
+    disconnection_events: Res<NetworkEventListener<PlayerDisconnectEvent>>,
     mut clients: ResMut<ClientsContainer>,
     worlds_manager: Res<WorldsManager>,
 ) {
     let _s = crate::span!("events.on_disconnect");
-    for event in disconnection_events.read() {
+    for event in disconnection_events.0.iter_events() {
         if let Some(i) = event.client.get_client_info() {
             log::info!(
                 target: "network",

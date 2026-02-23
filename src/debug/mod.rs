@@ -37,6 +37,34 @@ lazy_static! {
     pub static ref STORAGE: std::sync::Mutex<RuntimeStorage> = std::sync::Mutex::new(RuntimeStorage::new());
 }
 
+/// Starts a background thread that periodically checks for deadlocks.
+///
+/// Uses parking_lot's deadlock detection feature, checking every 1s.
+/// When deadlocks are detected, detailed information including backtraces
+/// is logged at the error level.
+#[cfg(all(debug_assertions, feature = "deadlock_detection"))]
+pub fn start_deadlock_detector() {
+    use std::thread;
+    use std::time::Duration;
+
+    thread::spawn(|| {
+        loop {
+            thread::sleep(Duration::from_millis(1000));
+
+            let deadlocks = parking_lot::deadlock::check_deadlock();
+            if !deadlocks.is_empty() {
+                log::error!("{} deadlocks detected!", deadlocks.len());
+                for threads in &deadlocks {
+                    for t in threads {
+                        log::error!("{:?}", t.backtrace());
+                    }
+                }
+            }
+        }
+    });
+    log::info!(target: "debug", "Deadlock detection is enabled!");
+}
+
 pub struct DebugPlugin;
 
 impl Default for DebugPlugin {
