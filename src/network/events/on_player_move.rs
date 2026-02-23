@@ -1,8 +1,13 @@
+use std::collections::HashMap;
+
+use bevy::prelude::Entity;
 use bevy::time::Time;
 use bevy_ecs::message::Message;
 use bevy_ecs::system::{Res, ResMut};
 use common::chunks::block_position::BlockPositionTrait;
 use common::utils::events::EventReader;
+
+use network::entities::AnimationState;
 
 use crate::entities::entity::Rotation;
 use crate::network::client_network::{ClientNetwork, WorldEntity};
@@ -16,14 +21,16 @@ pub struct PlayerMoveEvent {
     client: ClientNetwork,
     position: Position,
     rotation: Rotation,
+    animation_state: AnimationState,
 }
 
 impl PlayerMoveEvent {
-    pub fn new(client: ClientNetwork, position: Position, rotation: Rotation) -> Self {
+    pub fn new(client: ClientNetwork, position: Position, rotation: Rotation, animation_state: AnimationState) -> Self {
         Self {
             client,
             position,
             rotation,
+            animation_state,
         }
     }
 }
@@ -34,20 +41,24 @@ pub fn on_player_move(
     time: Res<Time>,
 ) {
     let _s = crate::span!("events.on_player_move");
-    let server_time = time.elapsed().as_secs_f32();
+    let server_time = time.elapsed().as_secs_f64();
+
+    // Keep only the last move event per player entity
+    let mut last_per_player: HashMap<Entity, PlayerMoveEvent> = HashMap::new();
     for event in player_move_events.0.iter_events() {
-        let world_entity = event.client.get_world_entity();
-        let world_entity = match world_entity.as_ref() {
-            Some(w) => w,
-            None => {
-                log::error!(
-                    target: "network",
-                    "Client ip:{} tries to send move packets but he is not in the world!",
-                    event.client.get_client_ip()
-                );
-                continue;
-            }
+        let Some(we) = event.client.get_world_entity() else {
+            log::error!(
+                target: "network",
+                "Client ip:{} tries to send move packets but he is not in the world!",
+                event.client.get_client_ip()
+            );
+            continue;
         };
+        last_per_player.insert(we.get_entity(), event);
+    }
+
+    for event in last_per_player.values() {
+        let world_entity = event.client.get_world_entity().unwrap();
 
         let mut world_manager = worlds_manager
             .get_world_manager_mut(&world_entity.get_world_slug())
@@ -66,9 +77,10 @@ pub fn on_player_move(
         }
         move_player(
             &mut *world_manager,
-            world_entity,
+            &world_entity,
             event.position,
             event.rotation,
+            event.animation_state,
             server_time,
         );
     }
@@ -80,7 +92,8 @@ pub fn move_player(
     world_entity: &WorldEntity,
     position: Position,
     rotation: Rotation,
-    server_time: f32,
+    animation_state: AnimationState,
+    server_time: f64,
 ) {
     let chunks_changed = world_manager.player_move(&world_entity, position, rotation);
 
@@ -89,11 +102,8 @@ pub fn move_player(
         let entity_ref = ecs.get_entity(world_entity.get_entity()).unwrap();
 
         let network = entity_ref.get::<ClientNetwork>().unwrap();
-        network.send_chunks_to_unload(
-            world_entity.get_world_slug(),
-            change.abandoned_chunks.clone(),
-        );
+        network.send_chunks_to_unload(world_entity.get_world_slug(), change.abandoned_chunks.clone());
     }
 
-    sync_player_move(world_manager, world_entity.get_entity(), &chunks_changed, server_time);
+    sync_player_move(world_manager, world_entity.get_entity(), &chunks_changed, server_time, animation_state);
 }

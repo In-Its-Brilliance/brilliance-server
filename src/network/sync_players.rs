@@ -1,5 +1,6 @@
 use bevy::prelude::Entity;
 use bevy_ecs::message::Message;
+use network::entities::AnimationState;
 use network::messages::{NetworkMessageType, ServerMessages};
 
 use crate::{
@@ -70,7 +71,8 @@ pub fn sync_player_move(
     world_manager: &WorldManager,
     target_entity: Entity,
     chunks_changed: &Option<ChunkChanged>,
-    server_time: f32,
+    server_time: f64,
+    animation_state: AnimationState,
 ) {
     #[cfg(feature = "trace")]
     let _span = bevy_utils::tracing::info_span!("sync_players.sync_player_move").entered();
@@ -116,6 +118,6 @@ pub fn sync_player_move(
 
     // Sync his entity if exists
     if entity_ref.get::<EntitySkinComponent>().is_some() {
-        sync_entity_move(world_manager, target_entity, chunks_changed, server_time);
+        sync_entity_move(world_manager, target_entity, chunks_changed, server_time, animation_state);
     }
 }

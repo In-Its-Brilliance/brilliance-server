@@ -1,7 +1,7 @@
 use bevy::prelude::{Entity, EntityRef};
 use common::chunks::block_position::BlockPositionTrait;
 use network::{
-    entities::EntityNetworkComponent,
+    entities::{AnimationState, EntityNetworkComponent},
     messages::{NetworkMessageType, ServerMessages},
 };
 use strum::IntoEnumIterator;
@@ -93,7 +93,8 @@ pub(crate) fn sync_entity_move(
     world_manager: &WorldManager,
     target_entity: Entity,
     chunks_changed: &Option<ChunkChanged>,
-    server_time: f32,
+    server_time: f64,
+    animation_state: AnimationState,
 ) {
     let ecs = world_manager.get_ecs();
     let entity_ref = ecs.get_entity(target_entity).unwrap();
@@ -105,6 +106,7 @@ pub(crate) fn sync_entity_move(
         id: target_entity.index(),
         position: position.to_network(),
         rotation: rotation.to_network(),
+        animation_state,
         timestamp: server_time,
     };
     let stop_msg = ServerMessages::StopStreamingEntities {

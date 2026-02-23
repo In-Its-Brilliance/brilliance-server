@@ -5,6 +5,7 @@ use crate::network::client_network::ClientNetwork;
 use crate::network::events::on_player_move::move_player;
 use bevy_ecs::world::World;
 use common::commands::command::{Arg, Command, CommandMatch};
+use network::entities::AnimationState;
 
 use super::worlds_manager::WorldsManager;
 
@@ -60,7 +61,7 @@ pub(crate) fn command_teleport(
     let y = args.get_arg::<f32, _>("y")?.clone();
     let z = args.get_arg::<f32, _>("z")?.clone();
 
-    let server_time = world.resource::<Time>().elapsed().as_secs_f32();
+    let server_time = world.resource::<Time>().elapsed().as_secs_f64();
     let worlds_manager = world.resource::<WorldsManager>();
 
     let client = match sender.as_any().downcast_ref::<ClientNetwork>() {
@@ -86,6 +87,6 @@ pub(crate) fn command_teleport(
         .get_world_manager_mut(&world_entity.get_world_slug())
         .unwrap();
 
-    move_player(&mut *world_manager, &world_entity, position, rotation, server_time);
+    move_player(&mut *world_manager, &world_entity, position, rotation, AnimationState::Idle, server_time);
     return Ok(());
 }

@@ -253,8 +253,8 @@ fn drain_network_system(
                 ClientMessages::ChunkRecieved { chunk_positions } => {
                     client.mark_chunks_as_recieved(chunk_positions);
                 }
-                ClientMessages::PlayerMove { position, rotation } => {
-                    let movement = PlayerMoveEvent::new(client.clone(), position.to_server(), rotation.to_server());
+                ClientMessages::PlayerMove { position, rotation, animation_state } => {
+                    let movement = PlayerMoveEvent::new(client.clone(), position.to_server(), rotation.to_server(), animation_state);
                     player_move_channel.0.emit_event(movement);
                 }
                 ClientMessages::ConnectionInfo {
