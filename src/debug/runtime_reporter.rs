@@ -1,41 +1,39 @@
 use common::utils::debug::format_grouped_lines::format_grouped_lines;
 use common::utils::debug::runtime_storage::SpansType;
-use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-const REPORT_COOLDOWN: Duration = Duration::from_secs(10);
-/// Предупреждение при просадке ниже 90% от целевого TPS
-pub(crate) const TPS_THRESHOLD: f32 = (common::TARGET_TPS * 0.9) as f32;
+use crate::network::runtime_plugin::RuntimePlugin;
 
-macro_rules! lags_template {
+const SPIKE_THRESHOLD: Duration = Duration::from_millis(10);
+
+macro_rules! spike_template {
     () => {
-        "&cLags detected! ({tps:.1} tps) Total: {duration:?}&r
+        "&cTick spike! ({tps:.1} tps) Total: {duration:.1?}&r
 {lines}"
     };
 }
 
 pub struct RuntimeReporter;
 
-static LAST_REPORT: Mutex<Option<Instant>> = Mutex::new(None);
-
 impl RuntimeReporter {
-    pub fn report(spans: &SpansType, tps: &f32) -> bool {
+    /// Проверяет, превысил ли текущий тик порог SPIKE_THRESHOLD (сумма "last" root-спанов).
+    pub fn check_spike(spans: &SpansType, tps: &f32) {
+        if RuntimePlugin::is_stopped() {
+            return;
+        }
+
         if spans.is_empty() {
-            return false;
+            return;
         }
 
-        if *tps >= TPS_THRESHOLD {
-            return false;
-        }
+        let total_root: Duration = spans
+            .iter()
+            .filter(|(name, _)| !name.contains("::"))
+            .map(|(_, (_, _, last))| *last)
+            .sum();
 
-        {
-            let mut last = LAST_REPORT.lock().unwrap();
-            if let Some(t) = *last {
-                if t.elapsed() < REPORT_COOLDOWN {
-                    return false;
-                }
-            }
-            *last = Some(Instant::now());
+        if total_root < SPIKE_THRESHOLD {
+            return;
         }
 
         let mut items: Vec<(&'static str, Duration, Duration)> = spans
@@ -50,13 +48,12 @@ impl RuntimeReporter {
 
         let (lines, duration) = format_grouped_lines(items);
         let msg = format!(
-            lags_template!(),
+            spike_template!(),
             tps = tps,
             duration = duration,
             lines = lines,
         );
 
         log::warn!(target: "debug", "{}", msg);
-        true
     }
 }

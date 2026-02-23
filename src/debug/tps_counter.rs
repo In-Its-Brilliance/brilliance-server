@@ -1,16 +1,17 @@
 use bevy::prelude::*;
+use network::messages::{NetworkMessageType, ServerMessages};
 use std::time::Duration;
 
-const TRACE_FLUSH_EVERY_N_TICKS: u32 = 30;
+use crate::launch_settings::LaunchSettings;
+use crate::network::clients_container::ClientsContainer;
+use crate::network::server::NetworkContainer;
 
 #[derive(Resource)]
 pub struct TpsCounter {
     ticks: u32,
     timer: Timer,
     tps: f32,
-
-    #[cfg(debug_assertions)]
-    trace_flush_counter: u32,
+    tps_updated: bool,
 }
 
 impl TpsCounter {
@@ -24,9 +25,7 @@ pub(crate) fn tps_counter_init(mut commands: Commands) {
         ticks: 0,
         timer: Timer::new(Duration::from_secs(1), TimerMode::Repeating),
         tps: 0.0,
-
-        #[cfg(debug_assertions)]
-        trace_flush_counter: 0,
+        tps_updated: false,
     });
 }
 
@@ -38,25 +37,42 @@ pub(crate) fn tps_counter_system(time: Res<Time>, mut counter: ResMut<TpsCounter
     if counter.timer.is_finished() {
         counter.tps = counter.ticks as f32;
         counter.ticks = 0;
+        counter.tps_updated = true;
     }
 
     #[cfg(debug_assertions)]
     {
-        // Репортим только после первого измерения TPS (через 1 секунду после старта)
         if counter.tps == 0.0 {
             return;
         }
 
-        counter.trace_flush_counter = counter.trace_flush_counter.wrapping_add(1);
-
-        if counter.trace_flush_counter % TRACE_FLUSH_EVERY_N_TICKS == 0 {
-            if let Ok(mut storage) = crate::debug::STORAGE.try_lock() {
-                let clear =
-                    crate::debug::runtime_reporter::RuntimeReporter::report(storage.get_spans(), counter.get_tps());
-                if clear {
-                    storage.clear();
-                }
-            }
+        if let Ok(storage) = crate::debug::STORAGE.try_lock() {
+            crate::debug::runtime_reporter::RuntimeReporter::check_spike(storage.get_spans(), counter.get_tps());
         }
+    }
+}
+
+/// Broadcasts server TPS to all connected clients (once per second, when TPS updates).
+pub(crate) fn tps_broadcast_system(
+    mut counter: ResMut<TpsCounter>,
+    settings: Res<LaunchSettings>,
+    clients: Res<ClientsContainer>,
+    network_container: Res<NetworkContainer>,
+) {
+    if !counter.tps_updated {
+        return;
+    }
+    counter.tps_updated = false;
+
+    if !settings.get_args().send_tps {
+        return;
+    }
+
+    let msg = ServerMessages::ServerStatus { tps: counter.tps };
+    for (_client_id, client) in clients.iter() {
+        if !network_container.is_connected(client) {
+            continue;
+        }
+        client.send_message(NetworkMessageType::Unreliable, &msg);
     }
 }

@@ -22,6 +22,10 @@ pub struct MainCommand {
 
     #[arg(long = "server-data-path", short = 'd')]
     pub server_data_path: Option<String>,
+
+    /// Send server TPS to clients (for client-side network debug display)
+    #[arg(long = "send-tps", default_value_t = true)]
+    pub send_tps: bool,
 }
 
 pub(crate) fn get_log_level(level: &String) -> LevelFilter {
