@@ -2,8 +2,9 @@ use bevy_ecs::system::Res;
 use common::{
     chunks::chunk_data::WorldMacroData,
     plugin_api::events::generage_world_macro::GenerateWorldMacroEvent,
+    utils::srotage_settings::StorageSettings,
     world_generator::traits::WorldGeneratorSettings,
-    worlds_storage::taits::{IWorldStorage, WorldStorageData, WorldStorageSettings},
+    worlds_storage::taits::{IWorldStorage, WorldStorageData},
     WorldStorageManager,
 };
 use rand::Rng;
@@ -27,7 +28,7 @@ pub(crate) fn load_worlds(
     }
 
     let server_data_path = launch_settings.get_server_data_path();
-    let storage_settings = WorldStorageSettings::from_path(server_data_path);
+    let storage_settings = StorageSettings::from_path(server_data_path);
 
     let worlds_info = match WorldStorageManager::scan_worlds(storage_settings.clone()) {
         Ok(w) => w,
@@ -121,7 +122,7 @@ fn create_new_world(
     };
 
     let server_data_path = launch_settings.get_server_data_path();
-    let storage_settings = WorldStorageSettings::from_path(server_data_path);
+    let storage_settings = StorageSettings::from_path(server_data_path);
     let world_storage = match WorldStorageManager::init(storage_settings.clone(), slug.clone()) {
         Ok(s) => s,
         Err(e) => {

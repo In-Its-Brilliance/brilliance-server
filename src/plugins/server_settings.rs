@@ -42,6 +42,7 @@ impl ServerSettings {
         ServerMessages::Settings {
             block_types: self.blocks.clone(),
             block_id_map: self.block_id_map.as_ref().unwrap().clone(),
+            chunks_distance: crate::CHUNKS_DISTANCE,
         }
     }
 

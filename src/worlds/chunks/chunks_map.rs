@@ -10,13 +10,16 @@ use common::{
         chunk_data::BlockDataInfo,
         chunk_position::ChunkPosition,
     },
-    utils::{compressable::Compressable, spiral_iterator::SpiralIterator, vec_remove_item},
+    utils::{spiral_iterator::SpiralIterator, vec_remove_item},
     world_generator::traits::WorldGeneratorSettings,
     worlds_storage::taits::IWorldStorage,
     WorldStorageManager, VERTICAL_SECTIONS,
 };
 use parking_lot::{RwLock, RwLockReadGuard};
-use std::{sync::Arc, time::{Duration, Instant}};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use super::{chunk_column::ChunkColumn, chunks_load_state::ChunksLoadState};
 
@@ -48,11 +51,11 @@ pub struct ChunkMap {
 #[cfg(test)]
 impl Default for ChunkMap {
     fn default() -> Self {
-        use common::worlds_storage::taits::{WorldStorageData, WorldStorageSettings};
+        use common::{utils::srotage_settings::StorageSettings, worlds_storage::taits::WorldStorageData};
 
         let (tx, rx) = flume::unbounded();
 
-        let storage_settings = WorldStorageSettings::in_memory();
+        let storage_settings = StorageSettings::in_memory();
 
         let storage = WorldStorageManager::init(storage_settings, "default").unwrap();
         let world_data = WorldStorageData::default();
@@ -231,8 +234,15 @@ impl ChunkMap {
         // Update chunks despawn timer
         // Increase ONLY of noone looking at the chunk
         for (&chunk, chunk_column) in self.chunks.iter_mut() {
+            let chunk_column = chunk_column.read();
+
+            // Skip loading chunk
+            if !chunk_column.is_loaded() {
+                continue;
+            }
+
             if self.chunks_load_state.num_tickets(&chunk) == 0 {
-                chunk_column.read().increase_despawn_timer(delta);
+                chunk_column.increase_despawn_timer(delta);
             }
         }
 
@@ -244,13 +254,19 @@ impl ChunkMap {
             }
 
             let chunk_column = chunk_column.read();
+
+            // Skip loading chunk
+            if !chunk_column.is_loaded() {
+                return true;
+            }
+
             if !chunk_column.is_for_despawn(CHUNKS_DESPAWN_TIMER) {
                 return true;
             }
 
             log::trace!(target: "chunks", "Chunk {} despawned", chunk);
 
-            let sections = chunk_column.get_sections().clone();
+            let chunk_storage = chunk_column.get_chunk_storage().clone();
             let chunk_position = *chunk_column.get_chunk_position();
             let storage = self.storage.clone();
 
@@ -259,8 +275,7 @@ impl ChunkMap {
                     return;
                 }
 
-                let compressed = sections.compress();
-                if let Err(e) = storage.read().save_chunk_data(&chunk_position, &compressed) {
+                if let Err(e) = storage.read().save_chunk_data(&chunk_position, &chunk_storage) {
                     log::error!(target: "worlds", "&cChunk save error!");
                     log::error!(target: "worlds", "Error: {}", e);
                     RuntimePlugin::stop();
@@ -320,11 +335,10 @@ impl ChunkMap {
     pub fn save(&mut self) -> Result<(), String> {
         for (_chunk_position, chunk_column) in self.chunks.iter() {
             let chunk_column = chunk_column.read();
-            let sections = chunk_column.get_sections();
             let save_chunk_data = self
                 .storage
                 .read()
-                .save_chunk_data(chunk_column.get_chunk_position(), &sections.compress());
+                .save_chunk_data(chunk_column.get_chunk_position(), chunk_column.get_chunk_storage());
             if let Err(e) = save_chunk_data {
                 return Err(e);
             }
@@ -338,6 +352,7 @@ mod tests {
     use super::{ChunkMap, ChunkPosition};
     use crate::{plugins::server_plugin::plugin_instance::WASMPluginManager, CHUNKS_DESPAWN_TIMER};
     use bevy::prelude::Entity;
+    use common::chunks::{chunk_data::{ChunkData, ChunkSectionData}, chunk_storage::ChunkStorage};
     use std::{sync::Arc, time::Duration};
 
     fn chunks_to_grid(chunks: &Vec<ChunkPosition>, center: &ChunkPosition, radius: i64) -> String {
@@ -426,6 +441,15 @@ ___________
         chunk_map.chunks_load_state.insert_ticket(pos.clone(), entity.clone());
         chunk_map.update_chunks_state(Duration::from_secs(1), &world_slug, wasm_plugin_manager.clone());
         assert_eq!(chunk_map.chunks.len(), 1, "One chunk must be created");
+
+        // Set created chunk loaded (set_chunk_data)
+        {
+            let (_, chunk_lock) = chunk_map.chunks.iter_mut().next().expect("Chunk must exist");
+            let mut chunk = chunk_lock.write();
+            let mut chunk_data = ChunkData::default();
+            chunk_data.push_section(ChunkSectionData::default());
+            chunk.set_chunk_data(ChunkStorage::create(chunk_data));
+        }
 
         chunk_map
             .get_chunk_column(&pos)

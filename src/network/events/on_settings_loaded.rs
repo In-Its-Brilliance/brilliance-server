@@ -40,7 +40,8 @@ pub fn on_settings_loaded(
 
         let mut components: Vec<EntityComponent> = Default::default();
 
-        let skin = EntitySkinComponent::create(EntitySkinData::Fixed("test://godot_robot.glb".into()));
+        // let skin = EntitySkinComponent::create(EntitySkinData::Fixed("test://godot_robot.glb".into()));
+        let skin = EntitySkinComponent::create(EntitySkinData::Generic);
         components.push(EntityComponent::Skin(Some(skin)));
 
         let client_info = event.client.get_client_info().unwrap();

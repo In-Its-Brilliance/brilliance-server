@@ -1,6 +1,7 @@
 use common::chunks::block_position::ChunkBlockPosition;
 use common::chunks::chunk_data::{BlockDataInfo, ChunkData};
 use common::chunks::chunk_position::ChunkPosition;
+use common::chunks::chunk_storage::ChunkStorage;
 use common::utils::compressable::Compressable;
 use core::fmt;
 use network::messages::ServerMessages;
@@ -12,7 +13,9 @@ pub struct ChunkColumn {
     chunk_position: ChunkPosition,
     world_slug: String,
 
-    sections: ChunkData,
+    // All chunk data
+    chunk_storage: Option<ChunkStorage>,
+
     despawn_timer: Arc<RwLock<Duration>>,
     loaded: bool,
 }
@@ -32,7 +35,7 @@ impl Display for ChunkColumn {
 impl ChunkColumn {
     pub(crate) fn new(chunk_position: ChunkPosition, world_slug: String) -> Self {
         Self {
-            sections: Default::default(),
+            chunk_storage: None,
             despawn_timer: Arc::new(RwLock::new(Duration::ZERO)),
             chunk_position,
             world_slug,
@@ -40,18 +43,24 @@ impl ChunkColumn {
         }
     }
 
-    pub fn set_sections(&mut self, chunk_data: ChunkData) {
+    pub fn set_chunk_data(&mut self, chunk_storage: ChunkStorage) {
         assert!(
-            chunk_data.len() > 0,
-            "SET_SECTIONS chunk must contain at least one section"
+            chunk_storage.get_chunk_data().len() > 0,
+            "SET_CHUNK_DATA chunk must contain at least one section"
         );
-        self.sections = chunk_data;
+        self.chunk_storage = Some(chunk_storage);
         self.loaded = true;
         // log::info!(target: "set_sections", "chunk {} loaded", self.chunk_position);
     }
 
     pub fn get_sections(&self) -> &ChunkData {
-        &self.sections
+        &self.chunk_storage.as_ref().unwrap().get_chunk_data()
+    }
+
+    pub fn get_chunk_storage(&self) -> &ChunkStorage {
+        self.chunk_storage
+            .as_ref()
+            .expect("Chunk storage is not loaded")
     }
 
     pub fn get_chunk_position(&self) -> &ChunkPosition {
@@ -69,7 +78,8 @@ impl ChunkColumn {
         chunk_block: &ChunkBlockPosition,
         new_block_info: Option<BlockDataInfo>,
     ) {
-        self.sections.change_block(section, &chunk_block, new_block_info);
+        let chunk_data = self.chunk_storage.as_mut().unwrap().get_chunk_data_mut();
+        chunk_data.change_block(section, &chunk_block, new_block_info);
     }
 
     pub(crate) fn is_for_despawn(&self, duration: Duration) -> bool {
@@ -88,7 +98,7 @@ impl ChunkColumn {
         assert!(self.loaded, "build_network_format: chunk must be loaded");
         return ServerMessages::ChunkSectionInfoEncoded {
             world_slug: self.world_slug.clone(),
-            encoded: self.sections.compress(),
+            encoded: self.get_sections().compress(),
             chunk_position: self.chunk_position.clone(),
         };
     }
