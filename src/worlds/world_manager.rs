@@ -162,16 +162,4 @@ impl WorldManager {
         self.chunks_map
             .update_chunks_state(delta, &world_slug, wasm_plugin_manager);
     }
-
-    pub fn get_network_chunk_bytes(&self, chunk_position: &ChunkPosition) -> Option<ServerMessages> {
-        match self.get_chunks_map().get_chunk_column(&chunk_position) {
-            Some(chunk_column) => {
-                if !chunk_column.is_loaded() {
-                    return None;
-                }
-                Some(chunk_column.build_network_format())
-            }
-            None => None,
-        }
-    }
 }

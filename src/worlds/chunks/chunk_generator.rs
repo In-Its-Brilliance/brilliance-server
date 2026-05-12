@@ -4,7 +4,6 @@ use std::sync::Arc;
 use common::{
     chunks::{chunk_data::ChunkData, chunk_position::ChunkPosition, chunk_storage::ChunkStorage},
     plugin_api::events::generage_chunk::ChunkGenerateEvent,
-    utils::compressable::Compressable,
     world_generator::traits::WorldGeneratorSettings,
     worlds_storage::taits::IWorldStorage,
 };

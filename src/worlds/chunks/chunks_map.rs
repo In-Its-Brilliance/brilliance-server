@@ -234,15 +234,8 @@ impl ChunkMap {
         // Update chunks despawn timer
         // Increase ONLY of noone looking at the chunk
         for (&chunk, chunk_column) in self.chunks.iter_mut() {
-            let chunk_column = chunk_column.read();
-
-            // Skip loading chunk
-            if !chunk_column.is_loaded() {
-                continue;
-            }
-
             if self.chunks_load_state.num_tickets(&chunk) == 0 {
-                chunk_column.increase_despawn_timer(delta);
+                chunk_column.read().increase_despawn_timer(delta);
             }
         }
 
@@ -277,7 +270,7 @@ impl ChunkMap {
 
                 if let Err(e) = storage.read().save_chunk_data(&chunk_position, &chunk_storage) {
                     log::error!(target: "worlds", "&cChunk save error!");
-                    log::error!(target: "worlds", "Error: {}", e);
+                    log::error!(target: "worlds", "&cError: {}", e);
                     RuntimePlugin::stop();
                 }
             });
