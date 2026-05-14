@@ -2,10 +2,10 @@ use common::commands::complitions::{CompleteRequest, CompleteResponse, Completio
 use flume::{Drain, Receiver, Sender};
 use lazy_static::lazy_static;
 use rustyline::{
-    Changeset, Context, Result,
     completion::{Candidate, Completer},
     hint::Hinter,
     line_buffer::LineBuffer,
+    Changeset, Context, Result,
 };
 use std::{thread, time::Duration};
 

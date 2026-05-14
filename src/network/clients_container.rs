@@ -1,12 +1,37 @@
 use ahash::AHashMap;
 use bevy_ecs::resource::Resource;
+use common::utils::debug::SmartRwLock;
 use network::NetworkServerConnection;
+use std::sync::Arc;
 
 use super::client_network::ClientNetwork;
 
 #[derive(Resource)]
 pub struct ClientsContainer {
     players: AHashMap<u64, ClientNetwork>,
+}
+
+#[derive(Resource, Clone)]
+pub struct SharedClientsContainer {
+    inner: Arc<SmartRwLock<ClientsContainer>>,
+}
+
+impl SharedClientsContainer {
+    pub fn new(inner: Arc<SmartRwLock<ClientsContainer>>) -> Self {
+        Self { inner }
+    }
+
+    pub fn read(&self) -> parking_lot::RwLockReadGuard<'_, ClientsContainer> {
+        self.inner.read()
+    }
+
+    pub fn write(&self) -> parking_lot::RwLockWriteGuard<'_, ClientsContainer> {
+        self.inner.write()
+    }
+
+    pub fn clone_inner(&self) -> Arc<SmartRwLock<ClientsContainer>> {
+        self.inner.clone()
+    }
 }
 
 impl Default for ClientsContainer {

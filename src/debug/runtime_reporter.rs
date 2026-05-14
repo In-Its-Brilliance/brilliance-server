@@ -62,12 +62,7 @@ impl RuntimeReporter {
         items.sort_by(|a, b| b.1.cmp(&a.1));
 
         let (lines, duration) = format_grouped_lines(items);
-        let msg = format!(
-            spike_template!(),
-            tps = tps,
-            duration = duration,
-            lines = lines,
-        );
+        let msg = format!(spike_template!(), tps = tps, duration = duration, lines = lines,);
 
         log::warn!(target: "debug", "{}", msg);
     }

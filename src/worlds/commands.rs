@@ -1,9 +1,9 @@
-use bevy::prelude::{Mut, World};
+use bevy::prelude::World;
 use bevy_ecs::system::Command;
 use common::chunks::block_position::BlockPositionTrait;
 use network::messages::{NetworkMessageType, ServerMessages};
 
-use super::worlds_manager::WorldsManager;
+use super::worlds_manager::SharedWorldsManager;
 use crate::{
     entities::{
         entity::{Position, Rotation},
@@ -40,34 +40,34 @@ impl SpawnPlayer {
 
 impl Command for SpawnPlayer {
     fn apply(self, world: &mut World) {
-        world.resource_scope(|world, worlds_manager: Mut<WorldsManager>| {
-            let Some(mut world_manager) = worlds_manager.get_world_manager_mut(&self.world_slug) else {
-                panic!("SpawnPlayer: world \"{}\" doesn't exists", self.world_slug);
-            };
+        let worlds_manager = world.resource::<SharedWorldsManager>().clone();
+        let worlds_manager = worlds_manager.write();
+        let Some(mut world_manager) = worlds_manager.get_world_manager_mut(&self.world_slug) else {
+            panic!("SpawnPlayer: world \"{}\" doesn't exists", self.world_slug);
+        };
 
-            let bundle = (self.position.clone(), self.rotation, self.client.clone());
-            let world_entity = world_manager.spawn_player(self.position, bundle, self.components.clone());
+        let bundle = (self.position.clone(), self.rotation, self.client.clone());
+        let world_entity = world_manager.spawn_player(self.position, bundle, self.components.clone());
 
-            self.client.set_world_entity(Some(world_entity.clone()));
+        self.client.set_world_entity(Some(world_entity.clone()));
 
-            // Send world creation message
-            let spawn_world = ServerMessages::SpawnWorld {
-                world_slug: self.world_slug.clone(),
-            };
-            self.client
-                .send_message(NetworkMessageType::ReliableOrdered, &spawn_world);
+        // Send world creation message
+        let spawn_world = ServerMessages::SpawnWorld {
+            world_slug: self.world_slug.clone(),
+        };
+        self.client
+            .send_message(NetworkMessageType::ReliableOrdered, &spawn_world);
 
-            self.client
-                .network_send_spawn(&self.position, &self.rotation, &self.components);
+        self.client
+            .network_send_spawn(&self.position, &self.rotation, &self.components);
 
-            if world_manager
-                .get_chunks_map()
-                .is_chunk_loaded(&self.position.get_chunk_position())
-            {
-                world
-                    .write_message(PlayerSpawnEvent::new(world_entity.clone()))
-                    .unwrap();
-            }
-        });
+        if world_manager
+            .get_chunks_map()
+            .is_chunk_loaded(&self.position.get_chunk_position())
+        {
+            world
+                .write_message(PlayerSpawnEvent::new(world_entity.clone()))
+                .unwrap();
+        }
     }
 }

@@ -5,7 +5,7 @@ use network::messages::{NetworkMessageType, ServerMessages};
 
 use crate::network::client_network::ClientInfo;
 use crate::network::client_network::ClientNetwork;
-use crate::network::clients_container::ClientsContainer;
+use crate::network::clients_container::SharedClientsContainer;
 use crate::network::events::on_media_loaded::PlayerMediaLoadedEvent;
 use crate::network::runtime_plugin::RuntimePlugin;
 use crate::network::server::{NetworkEventChannel, NetworkEventListener};
@@ -42,7 +42,7 @@ pub fn on_connection_info(
     connection_info_events: Res<NetworkEventListener<PlayerConnectionInfoEvent>>,
     plugins_manager: Res<PluginsManager>,
     player_media_loaded_channel: Res<NetworkEventChannel<PlayerMediaLoadedEvent>>,
-    clients: Res<ClientsContainer>,
+    clients: Res<SharedClientsContainer>,
 ) {
     let _s = crate::span!("events.on_connection_info");
     if RuntimePlugin::is_stopped() {
@@ -50,8 +50,8 @@ pub fn on_connection_info(
     }
 
     for event in connection_info_events.0.iter_events() {
-
-        for (client_id, client) in clients.iter() {
+        let clients_guard = clients.read();
+        for (client_id, client) in clients_guard.iter() {
             if *client_id != event.client.get_client_id() {
                 if let Some(client_info) = client.get_client_info() {
                     if *client_info.get_login() == event.login {

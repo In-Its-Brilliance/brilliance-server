@@ -15,11 +15,11 @@ use crate::{
     plugins::{plugins_manager::PluginsManager, server_settings::ServerSettings},
 };
 
-use super::worlds_manager::WorldsManager;
+use super::worlds_manager::{SharedWorldsManager, WorldsManager};
 
 pub(crate) fn load_worlds(
     launch_settings: Res<LaunchSettings>,
-    worlds_manager: Res<WorldsManager>,
+    worlds_manager: Res<SharedWorldsManager>,
     server_settings: Res<ServerSettings>,
     plugins_manager: Res<PluginsManager>,
 ) {
@@ -65,7 +65,7 @@ pub(crate) fn load_worlds(
             return;
         }
 
-        let create_result = worlds_manager.create_world(
+        let create_result = worlds_manager.write().create_world(
             world_data.get_slug().clone(),
             world_storage,
             world_generator_settings.clone(),
@@ -85,14 +85,15 @@ pub(crate) fn load_worlds(
     let default_world = "default".to_string();
     let default_world_generator = "default".to_string();
 
-    if worlds_manager.count() == 0 && !worlds_manager.has_world_with_slug(&default_world) {
+    let mut worlds_manager_guard = worlds_manager.write();
+    if worlds_manager_guard.count() == 0 && !worlds_manager_guard.has_world_with_slug(&default_world) {
         let result = create_new_world(
             default_world.clone(),
             None,
             default_world_generator,
             &*launch_settings,
             &*plugins_manager,
-            &*worlds_manager,
+            &mut *worlds_manager_guard,
         );
         match result {
             Ok(_) => {
@@ -114,7 +115,7 @@ fn create_new_world(
     method: String,
     launch_settings: &LaunchSettings,
     plugins_manager: &PluginsManager,
-    worlds_manager: &WorldsManager,
+    worlds_manager: &mut WorldsManager,
 ) -> Result<(), String> {
     let seed = match seed {
         Some(s) => s,

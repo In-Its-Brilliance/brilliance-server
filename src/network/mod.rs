@@ -1,10 +1,10 @@
-pub mod events;
-pub mod server;
-pub mod runtime_plugin;
+pub mod chunks_sender;
 pub mod client_network;
 pub mod clients_container;
-pub mod chunks_sender;
-pub mod sync_entities;
-pub mod sync_world_change;
-pub mod sync_players;
 pub mod console_commands;
+pub mod events;
+pub mod runtime_plugin;
+pub mod server;
+pub mod sync_entities;
+pub mod sync_players;
+pub mod sync_world_change;

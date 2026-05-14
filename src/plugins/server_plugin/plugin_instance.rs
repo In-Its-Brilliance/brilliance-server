@@ -26,9 +26,7 @@ impl WASMPluginManager {
         let mut instances = vec![primary];
         instances.extend(rest?);
 
-        Ok(Self {
-            instances,
-        })
+        Ok(Self { instances })
     }
 
     /// Первый инстанс для lifecycle событий (on_load, on_unload)

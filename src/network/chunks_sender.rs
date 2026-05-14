@@ -1,6 +1,6 @@
 use crate::{
     entities::entity::Position,
-    worlds::{world_manager::WorldManager, worlds_manager::WorldsManager},
+    worlds::{world_manager::WorldManager, worlds_manager::SharedWorldsManager},
     CHUNKS_DISTANCE, SEND_CHUNK_QUEUE_LIMIT,
 };
 use ahash::AHashSet;
@@ -13,7 +13,7 @@ use network::messages::{NetworkMessageType, ServerMessages};
 
 use super::{
     client_network::{ClientNetwork, WorldEntity},
-    clients_container::ClientsContainer,
+    clients_container::SharedClientsContainer,
     server::NetworkContainer,
 };
 
@@ -41,8 +41,8 @@ impl Default for ChunkCompressQueue {
 /// checks the chunks each player is watching, and sends not-yet-sent loaded chunks
 /// in the correct order.
 pub fn send_chunks(
-    worlds_manager: Res<WorldsManager>,
-    clients: Res<ClientsContainer>,
+    worlds_manager: Res<SharedWorldsManager>,
+    clients: Res<SharedClientsContainer>,
     network_container: Res<NetworkContainer>,
     compress_queue: Res<ChunkCompressQueue>,
 ) {
@@ -51,7 +51,8 @@ pub fn send_chunks(
     let _s = crate::span!("chunks_sender.send_chunks");
 
     // iterate over all clients
-    for (_client_id, network_client) in clients.iter() {
+    let clients_guard = clients.read();
+    for (_client_id, network_client) in clients_guard.iter() {
         // skip disconnected clients
         if !network_container.is_connected(&network_client) {
             continue;
@@ -68,7 +69,10 @@ pub fn send_chunks(
         };
 
         // get player's world
-        let world = worlds_manager.get_world_manager(world_entity.get_world_slug()).unwrap();
+        let worlds_manager_guard = worlds_manager.read();
+        let world = worlds_manager_guard
+            .get_world_manager(world_entity.get_world_slug())
+            .unwrap();
 
         // chunks the player is watching
         let player_watching_chunks = match world.get_chunks_map().get_watching_chunks(&world_entity.get_entity()) {
@@ -81,7 +85,13 @@ pub fn send_chunks(
             continue;
         }
 
-        send_chunks_to_client(&*world, &world_entity, network_client, player_watching_chunks, &compress_queue.sender);
+        send_chunks_to_client(
+            &*world,
+            &world_entity,
+            network_client,
+            player_watching_chunks,
+            &compress_queue.sender,
+        );
     }
 }
 
@@ -153,10 +163,7 @@ fn send_chunks_to_client(
         rayon::spawn(move || {
             let chunk = chunk_arc.read();
             let message = chunk.build_network_format();
-            let _ = sender.send(PreparedChunk {
-                client_id,
-                message,
-            });
+            let _ = sender.send(PreparedChunk { client_id, message });
         });
     }
 }
@@ -164,13 +171,14 @@ fn send_chunks_to_client(
 /// Drains compressed chunk results from rayon and sends them over the network.
 pub fn flush_compressed_chunks(
     compress_queue: Res<ChunkCompressQueue>,
-    clients: Res<ClientsContainer>,
+    clients: Res<SharedClientsContainer>,
     network_container: Res<NetworkContainer>,
 ) {
     let _s = crate::span!("chunks_sender.flush_compressed_chunks");
 
+    let clients_guard = clients.read();
     for prepared in compress_queue.receiver.drain() {
-        let Some(client) = clients.get(&prepared.client_id) else {
+        let Some(client) = clients_guard.get(&prepared.client_id) else {
             continue;
         };
         if !network_container.is_connected(client) {

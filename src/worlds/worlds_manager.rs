@@ -1,8 +1,10 @@
 use bevy::prelude::Resource;
 use bevy::time::Time;
 use bevy_ecs::system::Res;
+use common::utils::debug::SmartRwLock;
 use common::{world_generator::traits::WorldGeneratorSettings, WorldStorageManager};
 use dashmap::DashMap;
+use std::sync::Arc;
 
 use crate::{network::runtime_plugin::RuntimePlugin, plugins::plugins_manager::PluginsManager};
 
@@ -14,6 +16,29 @@ type WorldsType = DashMap<String, WorldManager>;
 #[derive(Resource)]
 pub struct WorldsManager {
     worlds: WorldsType,
+}
+
+#[derive(Resource, Clone)]
+pub struct SharedWorldsManager {
+    inner: Arc<SmartRwLock<WorldsManager>>,
+}
+
+impl SharedWorldsManager {
+    pub fn new(inner: Arc<SmartRwLock<WorldsManager>>) -> Self {
+        Self { inner }
+    }
+
+    pub fn read(&self) -> parking_lot::RwLockReadGuard<'_, WorldsManager> {
+        self.inner.read()
+    }
+
+    pub fn write(&self) -> parking_lot::RwLockWriteGuard<'_, WorldsManager> {
+        self.inner.write()
+    }
+
+    pub fn clone_inner(&self) -> Arc<SmartRwLock<WorldsManager>> {
+        self.inner.clone()
+    }
 }
 
 impl Default for WorldsManager {
@@ -133,12 +158,17 @@ impl<'a> std::ops::DerefMut for WorldRefMultiMut<'a> {
     }
 }
 
-pub fn update_world_chunks(worlds_manager: Res<WorldsManager>, time: Res<Time>, plugins_manager: Res<PluginsManager>) {
+pub fn update_world_chunks(
+    worlds_manager: Res<SharedWorldsManager>,
+    time: Res<Time>,
+    plugins_manager: Res<PluginsManager>,
+) {
     let _s = crate::span!("worlds.update_world_chunks");
     if RuntimePlugin::is_stopped() {
         return;
     }
-    for mut world in worlds_manager.iter_worlds_mut() {
+    let worlds_manager_guard = worlds_manager.read();
+    for mut world in worlds_manager_guard.iter_worlds_mut() {
         let wasm_plugin_manager = plugins_manager
             .get_world_generator(&world.get_world_generator())
             .expect("world_generator is required");

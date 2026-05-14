@@ -1,7 +1,7 @@
 use bevy_ecs::world::World;
 use common::commands::command::{Arg, Command, CommandMatch};
 
-use crate::{console::console_sender::ConsoleSenderType, network::clients_container::ClientsContainer};
+use crate::{console::console_sender::ConsoleSenderType, network::clients_container::SharedClientsContainer};
 
 pub(crate) fn command_parser_kick() -> Command {
     Command::new("kick".to_owned())
@@ -16,9 +16,10 @@ pub(crate) fn command_kick(
 ) -> Result<(), String> {
     let login = args.get_arg::<String, _>("login")?.clone();
 
-    let clients = world.resource::<ClientsContainer>();
+    let clients = world.resource::<SharedClientsContainer>();
+    let clients_guard = clients.read();
 
-    let Some(client) = clients.get_by_login(&login) else {
+    let Some(client) = clients_guard.get_by_login(&login) else {
         sender.send_console_message(format!("&cPlayer with login \"{}\" not found", login));
         return Ok(());
     };

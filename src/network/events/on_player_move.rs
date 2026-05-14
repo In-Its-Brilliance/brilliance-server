@@ -3,18 +3,18 @@ use std::collections::HashMap;
 use bevy::prelude::Entity;
 use bevy::time::Time;
 use bevy_ecs::message::Message;
-use bevy_ecs::system::{Res, ResMut};
+use bevy_ecs::system::Res;
 use common::chunks::block_position::BlockPositionTrait;
 use common::utils::events::EventReader;
-
 use network::entities::AnimationState;
 
+use crate::entities::entity::Position;
 use crate::entities::entity::Rotation;
 use crate::network::client_network::{ClientNetwork, WorldEntity};
 use crate::network::server::NetworkEventListener;
 use crate::network::sync_players::sync_player_move;
 use crate::worlds::world_manager::WorldManager;
-use crate::{entities::entity::Position, worlds::worlds_manager::WorldsManager};
+use crate::worlds::worlds_manager::SharedWorldsManager;
 
 #[derive(Message)]
 pub struct PlayerMoveEvent {
@@ -37,7 +37,7 @@ impl PlayerMoveEvent {
 
 pub fn on_player_move(
     player_move_events: Res<NetworkEventListener<PlayerMoveEvent>>,
-    worlds_manager: ResMut<WorldsManager>,
+    worlds_manager: Res<SharedWorldsManager>,
     time: Res<Time>,
 ) {
     let _s = crate::span!("events.on_player_move");
@@ -60,7 +60,8 @@ pub fn on_player_move(
     for event in last_per_player.values() {
         let world_entity = event.client.get_world_entity().unwrap();
 
-        let mut world_manager = worlds_manager
+        let worlds_manager_guard = worlds_manager.write();
+        let mut world_manager = worlds_manager_guard
             .get_world_manager_mut(&world_entity.get_world_slug())
             .unwrap();
 
@@ -105,5 +106,11 @@ pub fn move_player(
         network.send_chunks_to_unload(world_entity.get_world_slug(), change.abandoned_chunks.clone());
     }
 
-    sync_player_move(world_manager, world_entity.get_entity(), &chunks_changed, server_time, animation_state);
+    sync_player_move(
+        world_manager,
+        world_entity.get_entity(),
+        &chunks_changed,
+        server_time,
+        animation_state,
+    );
 }

@@ -3,7 +3,7 @@ use network::messages::{NetworkMessageType, ServerMessages};
 use std::time::Duration;
 
 use crate::launch_settings::LaunchSettings;
-use crate::network::clients_container::ClientsContainer;
+use crate::network::clients_container::SharedClientsContainer;
 use crate::network::server::NetworkContainer;
 
 #[derive(Resource)]
@@ -56,7 +56,7 @@ pub(crate) fn tps_counter_system(time: Res<Time>, mut counter: ResMut<TpsCounter
 pub(crate) fn tps_broadcast_system(
     mut counter: ResMut<TpsCounter>,
     settings: Res<LaunchSettings>,
-    clients: Res<ClientsContainer>,
+    clients: Res<SharedClientsContainer>,
     network_container: Res<NetworkContainer>,
 ) {
     if !counter.tps_updated {
@@ -69,7 +69,8 @@ pub(crate) fn tps_broadcast_system(
     }
 
     let msg = ServerMessages::ServerStatus { tps: counter.tps };
-    for (_client_id, client) in clients.iter() {
+    let clients_guard = clients.read();
+    for (_client_id, client) in clients_guard.iter() {
         if !network_container.is_connected(client) {
             continue;
         }

@@ -8,9 +8,9 @@ use std::sync::{Arc, RwLock};
 
 use crate::console::console_handler::ConsoleHandler;
 use crate::plugins::plugins_manager::PluginsManager;
-use crate::worlds::worlds_manager::WorldsManager;
+use crate::worlds::worlds_manager::SharedWorldsManager;
 
-use super::clients_container::ClientsContainer;
+use super::clients_container::SharedClientsContainer;
 
 lazy_static! {
     static ref SERVER_STATE: Arc<RwLock<ServerState>> = Arc::new(RwLock::new(ServerState::STARTED));
@@ -77,17 +77,17 @@ fn activate_runtime() {
 
 fn update_runtime(
     mut app_exit_events: MessageWriter<AppExit>,
-    mut clients: ResMut<ClientsContainer>,
+    clients: Res<SharedClientsContainer>,
     mut console_handler: ResMut<ConsoleHandler>,
     mut plugins_manager: ResMut<PluginsManager>,
-    worlds_manager: Res<WorldsManager>,
+    worlds_manager: Res<SharedWorldsManager>,
 ) {
     let _s = crate::span!("runtime.update_runtime");
     if RuntimePlugin::is_stopping() {
         log::info!(target: "main", "Server shutdown...");
-        clients.disconnect_all(Some("Server shutting down".to_string()));
+        clients.write().disconnect_all(Some("Server shutting down".to_string()));
         plugins_manager.unload_all_plugins();
-        worlds_manager.save_all().unwrap();
+        worlds_manager.read().save_all().unwrap();
         console_handler.handle_stop_server();
         app_exit_events.write(AppExit::Success);
         RuntimePlugin::set_stoped();

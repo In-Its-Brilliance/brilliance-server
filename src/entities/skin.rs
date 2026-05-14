@@ -1,5 +1,5 @@
 use bevy::prelude::Component;
-use network::{entities::{EntityNetworkComponent, EntitySkinData}};
+use network::entities::{EntityNetworkComponent, EntitySkinData};
 
 use super::traits::IEntityNetworkComponent;
 

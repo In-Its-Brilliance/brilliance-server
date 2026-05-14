@@ -1,3 +1,6 @@
+use crate::network::server::NetworkEventListener;
+use crate::worlds::commands::SpawnPlayer;
+use crate::worlds::worlds_manager::SharedWorldsManager;
 use crate::{
     entities::{
         entity::{Position, Rotation},
@@ -11,9 +14,6 @@ use bevy::prelude::{Commands, Res};
 use bevy_ecs::message::Message;
 use common::utils::events::EventReader;
 use network::entities::{entity_tag::EntityTagData, EntitySkinData};
-
-use crate::network::server::NetworkEventListener;
-use crate::worlds::{commands::SpawnPlayer, worlds_manager::WorldsManager};
 
 #[derive(Message)]
 pub struct PlayerSettingsLoadedEvent {
@@ -29,12 +29,12 @@ impl PlayerSettingsLoadedEvent {
 pub fn on_settings_loaded(
     mut commands: Commands,
     events: Res<NetworkEventListener<PlayerSettingsLoadedEvent>>,
-    worlds_manager: Res<WorldsManager>,
+    worlds_manager: Res<SharedWorldsManager>,
 ) {
     let _s = crate::span!("events.on_settings_loaded");
     for event in events.0.iter_events() {
         let default_world = "default".to_string();
-        if !worlds_manager.has_world_with_slug(&default_world) {
+        if !worlds_manager.read().has_world_with_slug(&default_world) {
             panic!("default world is not found");
         };
 

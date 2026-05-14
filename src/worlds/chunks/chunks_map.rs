@@ -345,7 +345,10 @@ mod tests {
     use super::{ChunkMap, ChunkPosition};
     use crate::{plugins::server_plugin::plugin_instance::WASMPluginManager, CHUNKS_DESPAWN_TIMER};
     use bevy::prelude::Entity;
-    use common::chunks::{chunk_data::{ChunkData, ChunkSectionData}, chunk_storage::ChunkStorage};
+    use common::chunks::{
+        chunk_data::{ChunkData, ChunkSectionData},
+        chunk_storage::ChunkStorage,
+    };
     use std::{sync::Arc, time::Duration};
 
     fn chunks_to_grid(chunks: &Vec<ChunkPosition>, center: &ChunkPosition, radius: i64) -> String {

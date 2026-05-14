@@ -1,4 +1,7 @@
-use std::{fmt::{self, Display}, any::Any};
+use std::{
+    any::Any,
+    fmt::{self, Display},
+};
 
 pub trait ConsoleSender {
     fn send_console_message(&self, message: String);

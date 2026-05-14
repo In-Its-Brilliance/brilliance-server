@@ -7,7 +7,7 @@ use crate::{
         sync_entities::sync_entity_spawn,
         sync_players::{send_entities_for_player, PlayerSpawnEvent},
     },
-    worlds::worlds_manager::WorldsManager,
+    worlds::worlds_manager::SharedWorldsManager,
 };
 
 /// Спавн игрока в мире
@@ -15,7 +15,7 @@ use crate::{
 /// Вызывается при успешном подключении игрока если чанк прогружен
 /// или при прогрузке чанка, если entity попал в загружающийся чанк.
 pub(crate) fn on_player_spawn(
-    worlds_manager: Res<WorldsManager>,
+    worlds_manager: Res<SharedWorldsManager>,
     mut connection_events: MessageReader<PlayerSpawnEvent>,
 ) {
     #[cfg(feature = "trace")]
@@ -24,7 +24,8 @@ pub(crate) fn on_player_spawn(
 
     for event in connection_events.read() {
         let target_entity = event.world_entity.get_entity();
-        let world_manager = worlds_manager
+        let worlds_manager_guard = worlds_manager.read();
+        let world_manager = worlds_manager_guard
             .get_world_manager(event.world_entity.get_world_slug())
             .unwrap();
 

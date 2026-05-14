@@ -3,10 +3,7 @@ use bevy_app::{App, Startup, Update};
 use bevy_ecs::change_detection::Mut;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::IntoScheduleConfigs;
-use bevy_ecs::{
-    system::{Res, ResMut},
-    world::World,
-};
+use bevy_ecs::{system::Res, world::World};
 use common::plugin_api::events::client_script_event::ClientScriptEvent;
 use common::timed_lock;
 use common::utils::debug::SmartRwLock;
@@ -17,7 +14,6 @@ use lazy_static::lazy_static;
 use network::messages::{ClientMessages, NetworkMessageType, ServerMessages};
 use network::server::{ConnectionMessages, IServerConnection, IServerNetwork};
 use network::NetworkServer;
-use std::sync::Arc;
 
 use super::events::{
     on_client_script_event::on_client_script_event,
@@ -31,15 +27,16 @@ use super::events::{
 };
 use crate::network::chunks_sender::{flush_compressed_chunks, send_chunks, ChunkCompressQueue};
 use crate::network::client_network::ClientNetwork;
-use crate::network::clients_container::ClientsContainer;
+use crate::network::clients_container::{ClientsContainer, SharedClientsContainer};
 use crate::network::sync_players::PlayerSpawnEvent;
+use crate::plugins::server_plugin::host_functions::set_clients_container_bridge;
 use crate::{console::commands_executer::CommandExecuter, entities::events::on_player_spawn::on_player_spawn};
 use crate::{console::commands_executer::CommandsHandler, LaunchSettings};
-use crate::plugins::server_plugin::host_functions::set_clients_container_bridge;
 use crate::{
     entities::entity::{IntoServerPosition, IntoServerRotation},
     network::console_commands::{command_kick, command_parser_kick},
 };
+use std::sync::Arc;
 
 const SEND_CHUNKS_DELAY: std::time::Duration = std::time::Duration::from_millis(10);
 
@@ -123,7 +120,10 @@ impl NetworkPlugin {
         commands_handler.add_command_executer(CommandExecuter::new(command_parser_kick(), command_kick));
 
         app.insert_resource(NetworkContainer::new(ip_port));
-        app.insert_resource(ClientsContainer::default());
+        app.insert_resource(SharedClientsContainer::new(Arc::new(timed_lock!(
+            ClientsContainer::default(),
+            "clients_container"
+        ))));
         app.insert_resource(ChunkCompressQueue::default());
         app.add_systems(Startup, register_clients_container_bridge);
 
@@ -171,9 +171,9 @@ impl NetworkPlugin {
     }
 }
 
-fn register_clients_container_bridge(clients: Res<ClientsContainer>) {
+fn register_clients_container_bridge(clients: Res<SharedClientsContainer>) {
     let _s = crate::span!("network.register_clients_container_bridge");
-    set_clients_container_bridge(&*clients);
+    set_clients_container_bridge(clients.clone_inner());
 }
 
 #[cfg(debug_assertions)]
@@ -192,7 +192,7 @@ fn span_name_for_client_message(msg: &ClientMessages) -> &'static str {
 
 fn drain_network_system(
     network_container: Res<NetworkContainer>,
-    mut clients: ResMut<ClientsContainer>,
+    clients: Res<SharedClientsContainer>,
 
     connection_channel: Res<NetworkEventChannel<PlayerConnectionEvent>>,
     disconnect_channel: Res<NetworkEventChannel<PlayerDisconnectEvent>>,
@@ -221,14 +221,16 @@ fn drain_network_system(
         for connection in network.drain_connections() {
             match connection {
                 ConnectionMessages::Connect { connection } => {
-                    clients.add(connection.clone());
-                    let client = clients.get(&connection.get_client_id()).unwrap();
+                    clients.write().add(connection.clone());
+                    let clients_guard = clients.read();
+                    let client = clients_guard.get(&connection.get_client_id()).unwrap();
                     connection_channel
                         .0
                         .emit_event(PlayerConnectionEvent::new(client.clone()));
                 }
                 ConnectionMessages::Disconnect { client_id, reason } => {
-                    let client = clients.get(&client_id).unwrap();
+                    let clients_guard = clients.read();
+                    let client = clients_guard.get(&client_id).unwrap();
                     disconnect_channel
                         .0
                         .emit_event(PlayerDisconnectEvent::new(client.clone(), reason));
@@ -238,7 +240,8 @@ fn drain_network_system(
     }
 
     // --- Drain client messages ---
-    for (client_id, client) in clients.iter() {
+    let clients_guard = clients.read();
+    for (client_id, client) in clients_guard.iter() {
         for decoded in client.get_connection().drain_client_messages() {
             #[cfg(debug_assertions)]
             let _s = crate::span!(span_name_for_client_message(&decoded));
@@ -310,7 +313,8 @@ fn drain_network_system(
 #[allow(unused_mut)]
 fn console_client_command_event(world: &mut World) {
     let _s = crate::span!("server.console_client_command_event");
-    world.resource_scope(|world, mut clients: Mut<ClientsContainer>| {
+    world.resource_scope(|world, clients: Mut<SharedClientsContainer>| {
+        let clients = clients.read();
         for (client_id, command) in CONSOLE_INPUT.1.try_iter() {
             let client = clients.get(&client_id).unwrap();
             CommandsHandler::execute_command(world, Box::new(client.clone()), &command);

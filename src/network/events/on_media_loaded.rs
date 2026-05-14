@@ -5,7 +5,9 @@ use network::messages::{NetworkMessageType, ServerMessages};
 
 use crate::{
     network::{client_network::ClientNetwork, runtime_plugin::RuntimePlugin, server::NetworkEventListener},
-    plugins::{plugins_manager::PluginsManager, resources_archive::ARCHIVE_CHUNK_SIZE, server_settings::ServerSettings},
+    plugins::{
+        plugins_manager::PluginsManager, resources_archive::ARCHIVE_CHUNK_SIZE, server_settings::ServerSettings,
+    },
 };
 
 #[derive(Message)]

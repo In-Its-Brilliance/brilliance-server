@@ -1,13 +1,13 @@
-use bevy::time::Time;
 use crate::console::console_sender::ConsoleSenderType;
 use crate::entities::entity::{Position, Rotation};
 use crate::network::client_network::ClientNetwork;
 use crate::network::events::on_player_move::move_player;
+use bevy::time::Time;
 use bevy_ecs::world::World;
 use common::commands::command::{Arg, Command, CommandMatch};
 use network::entities::AnimationState;
 
-use super::worlds_manager::WorldsManager;
+use super::worlds_manager::SharedWorldsManager;
 
 pub(crate) fn command_parser_world() -> Command {
     Command::new("world".to_string())
@@ -23,7 +23,8 @@ pub(crate) fn command_world(
     if let Some(world_subcommand) = args.subcommand() {
         match world_subcommand.get_name().as_str() {
             "list" => {
-                let worlds_manager = world.resource_mut::<WorldsManager>();
+                let worlds_manager = world.resource::<SharedWorldsManager>().clone();
+                let worlds_manager = worlds_manager.read();
                 if worlds_manager.count() == 0 {
                     sender.send_console_message("Worlds list is empty".to_string());
                     return Ok(());
@@ -62,7 +63,7 @@ pub(crate) fn command_teleport(
     let z = args.get_arg::<f32, _>("z")?.clone();
 
     let server_time = world.resource::<Time>().elapsed().as_secs_f64();
-    let worlds_manager = world.resource::<WorldsManager>();
+    let worlds_manager = world.resource::<SharedWorldsManager>().clone();
 
     let client = match sender.as_any().downcast_ref::<ClientNetwork>() {
         Some(c) => c,
@@ -83,10 +84,18 @@ pub(crate) fn command_teleport(
         return Ok(());
     };
 
+    let worlds_manager = worlds_manager.write();
     let mut world_manager = worlds_manager
         .get_world_manager_mut(&world_entity.get_world_slug())
         .unwrap();
 
-    move_player(&mut *world_manager, &world_entity, position, rotation, AnimationState::Idle, server_time);
+    move_player(
+        &mut *world_manager,
+        &world_entity,
+        position,
+        rotation,
+        AnimationState::Idle,
+        server_time,
+    );
     return Ok(());
 }

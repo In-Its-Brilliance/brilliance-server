@@ -31,10 +31,7 @@ pub fn send_entities_for_player(world_manager: &WorldManager, target_entity: Ent
     let entity_ref = ecs.get_entity(target_entity).unwrap();
     if let Some(client) = entity_ref.get::<ClientNetwork>() {
         // Sends all existing entities from the player's line of sight
-        if let Some(player_chunks) = world_manager
-            .get_chunks_map()
-            .get_watching_chunks(&target_entity)
-        {
+        if let Some(player_chunks) = world_manager.get_chunks_map().get_watching_chunks(&target_entity) {
             for chunk in player_chunks {
                 if !world_manager.get_chunks_map().is_chunk_loaded(chunk) {
                     continue;
@@ -47,11 +44,7 @@ pub fn send_entities_for_player(world_manager: &WorldManager, target_entity: Ent
                     }
 
                     if target_ref.get::<EntitySkinComponent>().is_some() {
-                        send_start_streaming_entity(
-                            &*client,
-                            target_ref,
-                            world_manager.get_slug().clone(),
-                        );
+                        send_start_streaming_entity(&*client, target_ref, world_manager.get_slug().clone());
                     }
                 }
             }
@@ -106,11 +99,7 @@ pub fn sync_player_move(
                     continue;
                 }
                 if target_ref.get::<EntitySkinComponent>().is_some() {
-                    send_start_streaming_entity(
-                        &*client,
-                        target_ref,
-                        world_manager.get_slug().clone(),
-                    );
+                    send_start_streaming_entity(&*client, target_ref, world_manager.get_slug().clone());
                 }
             }
         }
@@ -118,6 +107,12 @@ pub fn sync_player_move(
 
     // Sync his entity if exists
     if entity_ref.get::<EntitySkinComponent>().is_some() {
-        sync_entity_move(world_manager, target_entity, chunks_changed, server_time, animation_state);
+        sync_entity_move(
+            world_manager,
+            target_entity,
+            chunks_changed,
+            server_time,
+            animation_state,
+        );
     }
 }

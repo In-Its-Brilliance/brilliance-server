@@ -108,9 +108,7 @@ impl ServerSettings {
     }
 }
 
-pub(crate) fn setup_default_blocks(
-    mut server_settings: ResMut<ServerSettings>,
-) {
+pub(crate) fn setup_default_blocks(mut server_settings: ResMut<ServerSettings>) {
     if RuntimePlugin::is_stopped() {
         return;
     }
@@ -132,7 +130,7 @@ pub(crate) fn rescan_server_settings(
     }
 
     let mut path = launch_settings.get_server_data_path();
-    
+
     if let Err(e) = std::fs::create_dir_all(&path) {
         log::error!(target: "settings", "&cCannot create server data directory:");
         log::error!(target: "settings", "{}", e);

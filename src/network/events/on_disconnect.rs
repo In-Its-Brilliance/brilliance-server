@@ -1,13 +1,13 @@
-use bevy_ecs::{
-    message::Message,
-    system::{Res, ResMut},
-};
+use bevy_ecs::{message::Message, system::Res};
 use common::utils::events::EventReader;
 
 use crate::{
     entities::skin::EntitySkinComponent,
-    network::{client_network::ClientNetwork, clients_container::ClientsContainer, server::NetworkEventListener, sync_entities::sync_entity_despawn},
-    worlds::worlds_manager::WorldsManager,
+    network::{
+        client_network::ClientNetwork, clients_container::SharedClientsContainer, server::NetworkEventListener,
+        sync_entities::sync_entity_despawn,
+    },
+    worlds::worlds_manager::SharedWorldsManager,
 };
 
 #[derive(Message)]
@@ -24,8 +24,8 @@ impl PlayerDisconnectEvent {
 
 pub fn on_disconnect(
     disconnection_events: Res<NetworkEventListener<PlayerDisconnectEvent>>,
-    mut clients: ResMut<ClientsContainer>,
-    worlds_manager: Res<WorldsManager>,
+    clients: Res<SharedClientsContainer>,
+    worlds_manager: Res<SharedWorldsManager>,
 ) {
     let _s = crate::span!("events.on_disconnect");
     for event in disconnection_events.0.iter_events() {
@@ -42,7 +42,8 @@ pub fn on_disconnect(
         let world_entity = event.client.get_world_entity();
         match world_entity {
             Some(c) => {
-                let mut world_manager = worlds_manager.get_world_manager_mut(&c.get_world_slug()).unwrap();
+                let worlds_manager_guard = worlds_manager.read();
+                let mut world_manager = worlds_manager_guard.get_world_manager_mut(&c.get_world_slug()).unwrap();
 
                 let ecs = world_manager.get_ecs();
                 let entity_ref = ecs.get_entity(c.get_entity()).unwrap();
@@ -56,6 +57,6 @@ pub fn on_disconnect(
             }
             None => (),
         };
-        clients.remove(&event.client.get_client_id());
+        clients.write().remove(&event.client.get_client_id());
     }
 }

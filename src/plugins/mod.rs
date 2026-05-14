@@ -3,12 +3,11 @@ use bevy_ecs::schedule::IntoScheduleConfigs;
 use plugins_manager::{rescan_plugins, PluginsManager};
 use server_settings::{rescan_server_settings, setup_default_blocks, ServerSettings};
 
-pub mod plugins_manager;
 pub mod plugin_container;
+pub mod plugins_manager;
 pub mod resources_archive;
-pub mod server_settings;
 pub mod server_plugin;
-
+pub mod server_settings;
 
 #[derive(Default)]
 pub struct PluginApp;

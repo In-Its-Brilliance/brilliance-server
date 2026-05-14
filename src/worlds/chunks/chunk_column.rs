@@ -58,9 +58,7 @@ impl ChunkColumn {
     }
 
     pub fn get_chunk_storage(&self) -> &ChunkStorage {
-        self.chunk_storage
-            .as_ref()
-            .expect("Chunk storage is not loaded")
+        self.chunk_storage.as_ref().expect("Chunk storage is not loaded")
     }
 
     pub fn get_chunk_position(&self) -> &ChunkPosition {

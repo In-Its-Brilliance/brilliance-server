@@ -1,6 +1,4 @@
-use self::{
-    commands_executer::CommandsHandler, console_handler::ConsoleHandler, console_sender::Console,
-};
+use self::{commands_executer::CommandsHandler, console_handler::ConsoleHandler, console_sender::Console};
 use crate::{launch_settings::LaunchSettings, network::runtime_plugin::RuntimePlugin};
 use bevy_app::{App, Plugin, Startup, Update};
 use bevy_ecs::{system::Res, system::ResMut, world::World};

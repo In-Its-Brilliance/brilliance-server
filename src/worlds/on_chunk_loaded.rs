@@ -7,12 +7,12 @@ use crate::network::{
     sync_players::PlayerSpawnEvent,
 };
 
-use super::worlds_manager::WorldsManager;
+use super::worlds_manager::SharedWorldsManager;
 
 /// Iterates trough all worlds
 /// and drain all their loaded chunks
 pub fn on_chunk_loaded(
-    worlds_manager: Res<WorldsManager>,
+    worlds_manager: Res<SharedWorldsManager>,
     network_container: Res<NetworkContainer>,
     mut player_spawn_events: MessageWriter<PlayerSpawnEvent>,
 ) {
@@ -21,7 +21,8 @@ pub fn on_chunk_loaded(
         return;
     }
 
-    for world in worlds_manager.iter_worlds() {
+    let worlds_manager_guard = worlds_manager.read();
+    for world in worlds_manager_guard.iter_worlds() {
         let loaded_chunks = world.get_chunks_map().drain_loaded_chunks().collect::<Vec<_>>();
         for chunk_position in loaded_chunks {
             let world_slug = world.get_slug().clone();

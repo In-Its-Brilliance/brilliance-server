@@ -47,17 +47,15 @@ pub fn start_deadlock_detector() {
     use std::thread;
     use std::time::Duration;
 
-    thread::spawn(|| {
-        loop {
-            thread::sleep(Duration::from_millis(1000));
+    thread::spawn(|| loop {
+        thread::sleep(Duration::from_millis(1000));
 
-            let deadlocks = parking_lot::deadlock::check_deadlock();
-            if !deadlocks.is_empty() {
-                log::error!("{} deadlocks detected!", deadlocks.len());
-                for threads in &deadlocks {
-                    for t in threads {
-                        log::error!("{:?}", t.backtrace());
-                    }
+        let deadlocks = parking_lot::deadlock::check_deadlock();
+        if !deadlocks.is_empty() {
+            log::error!("{} deadlocks detected!", deadlocks.len());
+            for threads in &deadlocks {
+                for t in threads {
+                    log::error!("{:?}", t.backtrace());
                 }
             }
         }
@@ -77,7 +75,10 @@ impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, crate::debug::tps_counter::tps_counter_init);
         app.add_systems(Update, crate::debug::tps_counter::tps_counter_system);
-        app.add_systems(Update, crate::debug::tps_counter::tps_broadcast_system.after(crate::debug::tps_counter::tps_counter_system));
+        app.add_systems(
+            Update,
+            crate::debug::tps_counter::tps_broadcast_system.after(crate::debug::tps_counter::tps_counter_system),
+        );
 
         let mut commands_handler = app.world_mut().get_resource_mut::<CommandsHandler>().unwrap();
         commands_handler.add_command_executer(CommandExecuter::new(command_parser_tps(), command_tps));
