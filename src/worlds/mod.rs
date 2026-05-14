@@ -11,6 +11,7 @@ use self::{
     console_commands::{command_parser_teleport, command_parser_world, command_teleport, command_world},
     worlds_manager::{WorldsManager, update_world_chunks},
 };
+use crate::plugins::server_plugin::host_functions::set_worlds_manager_bridge;
 
 pub mod chunks;
 pub mod console_commands;
@@ -35,9 +36,15 @@ impl Plugin for WorldsHandlerPlugin {
 
         let worlds_manager = WorldsManager::default();
         app.insert_resource(worlds_manager);
+        app.add_systems(Startup, register_worlds_manager_bridge);
 
         app.add_systems(Startup, load_worlds::load_worlds.after(rescan_server_settings));
         app.add_systems(Update, update_world_chunks);
         app.add_systems(Update, on_chunk_loaded::on_chunk_loaded);
     }
+}
+
+pub fn register_worlds_manager_bridge(worlds_manager: bevy_ecs::system::Res<WorldsManager>) {
+    let _s = crate::span!("worlds.register_worlds_manager_bridge");
+    set_worlds_manager_bridge(&*worlds_manager);
 }

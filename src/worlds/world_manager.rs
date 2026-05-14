@@ -10,7 +10,6 @@ use common::chunks::block_position::BlockPositionTrait;
 use common::chunks::chunk_position::ChunkPosition;
 use common::world_generator::traits::WorldGeneratorSettings;
 use common::WorldStorageManager;
-use network::messages::ServerMessages;
 use std::sync::Arc;
 use std::time::Duration;
 

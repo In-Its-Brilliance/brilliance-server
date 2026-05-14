@@ -5,6 +5,7 @@ use bevy_ecs::{
 use common::{
     blocks::block_type::{BlockContent, BlockType},
     default_resources::DEFAULT_RESOURCES,
+    plugin_api::events::client_script_event::ClientScriptEvent,
     utils::{calculate_hash, split_resource_path},
 };
 use network::messages::ResurceScheme;
@@ -223,6 +224,22 @@ impl PluginsManager {
             }
         }
         return false;
+    }
+
+    pub fn dispatch_client_script_event(&self, event: &ClientScriptEvent) {
+        for (_plugin_slug, plugin) in self.plugins.iter() {
+            let Some(wasm_plugin) = plugin.get_wasm_plugin().as_ref() else {
+                continue;
+            };
+
+            if !wasm_plugin.has_event_handler::<ClientScriptEvent>() {
+                continue;
+            }
+
+            if let Err(e) = wasm_plugin.call_event(event) {
+                log::warn!(target: "scripts", "WASM client script event error: {}", e);
+            }
+        }
     }
 
     pub fn get_world_generator(&self, method: &String) -> Option<Arc<WASMPluginManager>> {

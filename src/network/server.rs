@@ -1,5 +1,5 @@
 use bevy::time::common_conditions::on_timer;
-use bevy_app::{App, Update};
+use bevy_app::{App, Startup, Update};
 use bevy_ecs::change_detection::Mut;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::IntoScheduleConfigs;
@@ -7,6 +7,7 @@ use bevy_ecs::{
     system::{Res, ResMut},
     world::World,
 };
+use common::plugin_api::events::client_script_event::ClientScriptEvent;
 use common::timed_lock;
 use common::utils::debug::SmartRwLock;
 use common::utils::events::event_channel::{ChannelReader, EventChannel};
@@ -19,10 +20,10 @@ use network::NetworkServer;
 use std::sync::Arc;
 
 use super::events::{
+    on_client_script_event::on_client_script_event,
     on_connection::{on_connection, PlayerConnectionEvent},
     on_connection_info::{on_connection_info, PlayerConnectionInfoEvent},
     on_disconnect::{on_disconnect, PlayerDisconnectEvent},
-    on_edit_block::{on_edit_block, EditBlockEvent},
     on_media_loaded::{on_media_loaded, PlayerMediaLoadedEvent},
     on_player_move::{on_player_move, PlayerMoveEvent},
     on_resources_has_cache::{on_resources_has_cache, ResourcesHasCacheEvent},
@@ -34,6 +35,7 @@ use crate::network::clients_container::ClientsContainer;
 use crate::network::sync_players::PlayerSpawnEvent;
 use crate::{console::commands_executer::CommandExecuter, entities::events::on_player_spawn::on_player_spawn};
 use crate::{console::commands_executer::CommandsHandler, LaunchSettings};
+use crate::plugins::server_plugin::host_functions::set_clients_container_bridge;
 use crate::{
     entities::entity::{IntoServerPosition, IntoServerRotation},
     network::console_commands::{command_kick, command_parser_kick},
@@ -123,6 +125,7 @@ impl NetworkPlugin {
         app.insert_resource(NetworkContainer::new(ip_port));
         app.insert_resource(ClientsContainer::default());
         app.insert_resource(ChunkCompressQueue::default());
+        app.add_systems(Startup, register_clients_container_bridge);
 
         // Register flume-based event channels
         register_network_event::<ResourcesHasCacheEvent>(app);
@@ -130,9 +133,9 @@ impl NetworkPlugin {
         register_network_event::<PlayerConnectionInfoEvent>(app);
         register_network_event::<PlayerDisconnectEvent>(app);
         register_network_event::<PlayerMoveEvent>(app);
-        register_network_event::<EditBlockEvent>(app);
         register_network_event::<PlayerMediaLoadedEvent>(app);
         register_network_event::<PlayerSettingsLoadedEvent>(app);
+        register_network_event::<ClientScriptEvent>(app);
 
         // Core drain system (replaces receive_message_system + handle_events_system)
         app.add_systems(Update, drain_network_system);
@@ -153,9 +156,9 @@ impl NetworkPlugin {
         app.add_systems(Update, on_connection_info.after(drain_network_system));
         app.add_systems(Update, on_disconnect.after(drain_network_system));
         app.add_systems(Update, on_player_move.after(drain_network_system));
-        app.add_systems(Update, on_edit_block.after(drain_network_system));
         app.add_systems(Update, on_media_loaded.after(drain_network_system));
         app.add_systems(Update, on_settings_loaded.after(drain_network_system));
+        app.add_systems(Update, on_client_script_event.after(drain_network_system));
 
         // PlayerSpawnEvent stays as Bevy Message (internal ECS event, not network)
         app.add_message::<PlayerSpawnEvent>();
@@ -168,6 +171,11 @@ impl NetworkPlugin {
     }
 }
 
+fn register_clients_container_bridge(clients: Res<ClientsContainer>) {
+    let _s = crate::span!("network.register_clients_container_bridge");
+    set_clients_container_bridge(&*clients);
+}
+
 #[cfg(debug_assertions)]
 fn span_name_for_client_message(msg: &ClientMessages) -> &'static str {
     match msg {
@@ -175,7 +183,7 @@ fn span_name_for_client_message(msg: &ClientMessages) -> &'static str {
         ClientMessages::ConsoleInput { .. } => "server.drain_network_system::ConsoleInput",
         ClientMessages::PlayerMove { .. } => "server.drain_network_system::PlayerMove",
         ClientMessages::ChunkRecieved { .. } => "server.drain_network_system::ChunkRecieved",
-        ClientMessages::EditBlockRequest { .. } => "server.drain_network_system::EditBlockRequest",
+        ClientMessages::ClientScriptEvent { .. } => "server.drain_network_system::ClientScriptEvent",
         ClientMessages::ResourcesHasCache { .. } => "server.drain_network_system::ResourcesHasCache",
         ClientMessages::ResourcesLoaded { .. } => "server.drain_network_system::ResourcesLoaded",
         ClientMessages::SettingsLoaded => "server.drain_network_system::SettingsLoaded",
@@ -191,9 +199,9 @@ fn drain_network_system(
     resources_has_cache_channel: Res<NetworkEventChannel<ResourcesHasCacheEvent>>,
     connection_info_channel: Res<NetworkEventChannel<PlayerConnectionInfoEvent>>,
     player_move_channel: Res<NetworkEventChannel<PlayerMoveEvent>>,
-    edit_block_channel: Res<NetworkEventChannel<EditBlockEvent>>,
     player_media_loaded_channel: Res<NetworkEventChannel<PlayerMediaLoadedEvent>>,
     settings_loaded_channel: Res<NetworkEventChannel<PlayerSettingsLoadedEvent>>,
+    client_script_channel: Res<NetworkEventChannel<ClientScriptEvent>>,
 ) {
     #[cfg(feature = "trace")]
     let _span = bevy_utils::tracing::info_span!("server.drain_network_system").entered();
@@ -253,8 +261,17 @@ fn drain_network_system(
                 ClientMessages::ChunkRecieved { chunk_positions } => {
                     client.mark_chunks_as_recieved(chunk_positions);
                 }
-                ClientMessages::PlayerMove { position, rotation, animation_state } => {
-                    let movement = PlayerMoveEvent::new(client.clone(), position.to_server(), rotation.to_server(), animation_state);
+                ClientMessages::PlayerMove {
+                    position,
+                    rotation,
+                    animation_state,
+                } => {
+                    let movement = PlayerMoveEvent::new(
+                        client.clone(),
+                        position.to_server(),
+                        rotation.to_server(),
+                        animation_state,
+                    );
                     player_move_channel.0.emit_event(movement);
                 }
                 ClientMessages::ConnectionInfo {
@@ -267,13 +284,23 @@ fn drain_network_system(
                         PlayerConnectionInfoEvent::new(client.clone(), login, version, architecture, rendering_device);
                     connection_info_channel.0.emit_event(info);
                 }
-                ClientMessages::EditBlockRequest {
-                    world_slug,
-                    position,
-                    new_block_info,
+                ClientMessages::ClientScriptEvent {
+                    script_slug,
+                    slug,
+                    json,
                 } => {
-                    let edit = EditBlockEvent::new(client.clone(), world_slug, position, new_block_info);
-                    edit_block_channel.0.emit_event(edit);
+                    log::debug!(
+                        target: "network",
+                        "Received client script event from {}: {} {} {}",
+                        client.get_client_ip(),
+                        script_slug,
+                        slug,
+                        json
+                    );
+                    let client_id = *client_id;
+                    client_script_channel
+                        .0
+                        .emit_event(ClientScriptEvent::create(script_slug, slug, json, client_id));
                 }
             }
         }

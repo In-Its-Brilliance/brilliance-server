@@ -50,6 +50,10 @@ impl WASMPluginManager {
         self.primary().call_event(event)
     }
 
+    pub fn has_event_handler<E: PluginEvent>(&self) -> bool {
+        self.primary().has_event_handler::<E>()
+    }
+
     pub fn call_event_with_result<E, R>(&self, event: &E) -> Result<R, String>
     where
         E: PluginEvent + serde::Serialize,
