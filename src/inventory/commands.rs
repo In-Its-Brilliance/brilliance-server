@@ -61,14 +61,16 @@ pub fn open_inventory(
         return;
     };
 
-    inventory_manager
+    let opened = inventory_manager
         .write()
         .open_inventory(world_entity.get_entity(), inventory_id);
-    send_inventory_start_to_client(
-        client,
-        InventoryType::WorldInventory(inventory_id),
-        block_inventory.get_inventory().to_client_inventory(),
-    );
+    if opened {
+        send_inventory_start_to_client(
+            client,
+            InventoryType::WorldInventory(inventory_id),
+            block_inventory.get_inventory().to_client_inventory(),
+        );
+    }
 }
 
 pub fn close_inventory(
@@ -99,4 +101,45 @@ pub fn close_inventory(
         .write()
         .close_inventory(world_entity.get_entity(), inventory_id);
     send_inventory_stop_to_client(client, &crate::network::events::on_inventory_action::InventoryTarget::World(inventory_id));
+}
+
+pub fn get_or_create_inventory(
+    world_slug: String,
+    position: common::chunks::block_position::BlockPosition,
+    slots_count: usize,
+    worlds_manager: &Arc<SmartRwLock<WorldsManager>>,
+    inventory_manager: &Arc<SmartRwLock<InventoryManager>>,
+) -> Result<u64, String> {
+    use common::chunks::block_position::BlockPositionTrait;
+
+    let (section, block_position) = position.get_block_position();
+    let chunk_position = position.get_chunk_position();
+
+    let worlds_guard = worlds_manager.write();
+    let Some(world_manager) = worlds_guard.get_world_manager_mut(&world_slug) else {
+        return Err(format!("World \"{}\" not found", world_slug));
+    };
+
+    let Some(chunk_column_arc) = world_manager.get_chunks_map().get_chunk_column_arc(&chunk_position) else {
+        return Err(format!("Chunk {:?} is not loaded", chunk_position));
+    };
+
+    let mut chunk_column = chunk_column_arc.write();
+    let chunk_storage = chunk_column.get_chunk_storage_mut();
+    let inventory_id = rand::random::<u64>();
+    let block_inventory = chunk_storage.get_or_create_inventory_by_position_mut(
+        section,
+        block_position,
+        slots_count,
+        inventory_id,
+    );
+
+    let mut inventory_manager = inventory_manager.write();
+    if inventory_manager.state().get_inventory_location(&inventory_id).is_none() {
+        inventory_manager
+            .state_mut()
+            .register_world_inventory(world_slug, chunk_position, block_inventory);
+    }
+
+    Ok(inventory_id)
 }

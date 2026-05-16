@@ -11,9 +11,18 @@ pub struct InventoryWatchers {
 }
 
 impl InventoryWatchers {
-    pub fn insert_ticket(&mut self, inventory_id: u64, entity: Entity) {
+    pub fn insert_ticket(&mut self, inventory_id: u64, entity: Entity) -> bool {
+        if self
+            .by_inventory
+            .get(&inventory_id)
+            .is_some_and(|watchers| watchers.contains(&entity))
+        {
+            return false;
+        }
+
         self.by_inventory.entry(inventory_id).or_default().push(entity);
         self.by_entity.entry(entity).or_default().push(inventory_id);
+        true
     }
 
     pub fn remove_ticket(&mut self, inventory_id: &u64, entity: &Entity) {

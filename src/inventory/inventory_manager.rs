@@ -19,8 +19,8 @@ pub struct InventoryManager {
 
 impl InventoryManager {
     /// Registers that a viewer is watching an inventory.
-    pub fn open_inventory(&mut self, viewer: Entity, inventory_id: u64) {
-        self.state.watch_inventory(inventory_id, viewer);
+    pub fn open_inventory(&mut self, viewer: Entity, inventory_id: u64) -> bool {
+        self.state.watch_inventory(inventory_id, viewer)
     }
 
     /// Unregisters a viewer from an inventory.

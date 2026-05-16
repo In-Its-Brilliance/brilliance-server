@@ -1,6 +1,10 @@
 use ahash::AHashMap;
 use bevy::prelude::Entity;
-use common::chunks::{block_position::ChunkBlockPosition, chunk_position::ChunkPosition, chunk_storage::ChunkStorage};
+use common::chunks::{
+    block_position::ChunkBlockPosition,
+    chunk_position::ChunkPosition,
+    chunk_storage::{BlockInventory, ChunkStorage},
+};
 
 use super::inventory_load_state::InventoryWatchers;
 
@@ -43,6 +47,36 @@ pub struct InventoryState {
 }
 
 impl InventoryState {
+    pub fn register_world_inventory(
+        &mut self,
+        world_slug: impl Into<String>,
+        chunk_position: ChunkPosition,
+        block_inventory: &BlockInventory,
+    ) {
+        let world_slug = world_slug.into();
+        let inventory_id = block_inventory.get_inventory().get_id();
+        if self.world_inventories.contains_key(&inventory_id) {
+            panic!(
+                "duplicate world inventory id {} in world {} chunk {:?} section {} position {:?}",
+                inventory_id,
+                world_slug,
+                chunk_position,
+                block_inventory.get_section(),
+                block_inventory.get_position()
+            );
+        }
+
+        self.world_inventories.insert(
+            inventory_id,
+            InventoryLocation::new(
+                world_slug,
+                chunk_position,
+                block_inventory.get_section(),
+                *block_inventory.get_position(),
+            ),
+        );
+    }
+
     pub fn register_chunk_inventories(
         &mut self,
         world_slug: impl Into<String>,
@@ -51,15 +85,7 @@ impl InventoryState {
     ) {
         let world_slug = world_slug.into();
         for block_inventory in chunk_storage.get_inventories() {
-            self.world_inventories.insert(
-                block_inventory.get_inventory().get_id(),
-                InventoryLocation::new(
-                    world_slug.clone(),
-                    chunk_position,
-                    block_inventory.get_section(),
-                    *block_inventory.get_position(),
-                ),
-            );
+            self.register_world_inventory(world_slug.clone(), chunk_position, block_inventory);
         }
     }
 
@@ -75,8 +101,8 @@ impl InventoryState {
         self.world_inventories.get(inventory_id)
     }
 
-    pub fn watch_inventory(&mut self, inventory_id: u64, entity: Entity) {
-        self.inventory_watchers.insert_ticket(inventory_id, entity);
+    pub fn watch_inventory(&mut self, inventory_id: u64, entity: Entity) -> bool {
+        self.inventory_watchers.insert_ticket(inventory_id, entity)
     }
 
     pub fn unwatch_inventory(&mut self, inventory_id: &u64, entity: &Entity) {

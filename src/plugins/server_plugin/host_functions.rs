@@ -1,7 +1,7 @@
 use crate::{
     clients::{client::WorldEntity, clients_container::ClientsContainer},
     inventory::{
-        commands::{close_inventory, open_inventory},
+        commands::{close_inventory, get_or_create_inventory, open_inventory},
         inventory_manager::InventoryManager,
     },
     network::sync_world_change::sync_world_block_change,
@@ -10,7 +10,7 @@ use crate::{
 };
 use common::{
     chunks::{
-        block_position::{BlockPosition, BlockPositionTrait},
+        block_position::BlockPosition,
         chunk_data::BlockDataInfo,
     },
     plugin_api::inventory::OpenInventoryRequest,
@@ -269,31 +269,20 @@ pub fn get_or_create_inventory_raw(
 
     let position: BlockPosition =
         serde_json::from_str(&position_json).map_err(|e| Error::msg(format!("Invalid block position json: {}", e)))?;
-    let (section, block_position) = position.get_block_position();
-    let chunk_position = position.get_chunk_position();
-
     let worlds_manager =
         get_worlds_manager_bridge().ok_or_else(|| Error::msg("WorldsManager bridge is not initialized"))?;
-    let worlds_manager = worlds_manager.write();
-    let Some(world_manager) = worlds_manager.get_world_manager_mut(&world_slug) else {
-        return Err(Error::msg(format!("World \"{}\" not found", world_slug)));
-    };
-
-    let Some(chunk_column_arc) = world_manager.get_chunks_map().get_chunk_column_arc(&chunk_position) else {
-        return Err(Error::msg(format!("Chunk {:?} is not loaded", chunk_position)));
-    };
-
-    let mut chunk_column = chunk_column_arc.write();
-    let chunk_storage = chunk_column.get_chunk_storage_mut();
-    let inventory_id = random::<u64>();
-    let block_inventory = chunk_storage.get_or_create_inventory_by_position_mut(
-        section,
-        block_position,
+    let inventory_manager =
+        get_inventory_manager_bridge().ok_or_else(|| Error::msg("InventoryManager bridge is not initialized"))?;
+    let inventory_id = get_or_create_inventory(
+        world_slug,
+        position,
         slots_count as usize,
-        inventory_id,
-    );
+        &worlds_manager,
+        &inventory_manager,
+    )
+    .map_err(Error::msg)?;
 
-    plugin.memory_set_val(&mut outputs[0], block_inventory.get_inventory().get_id().to_string())?;
+    plugin.memory_set_val(&mut outputs[0], inventory_id.to_string())?;
     Ok(())
 }
 
