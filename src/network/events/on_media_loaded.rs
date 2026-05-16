@@ -4,15 +4,17 @@ use common::utils::events::EventReader;
 use network::messages::{NetworkMessageType, ServerMessages};
 
 use crate::{
-    network::{client_network::ClientNetwork, runtime_plugin::RuntimePlugin, server::NetworkEventListener},
+    clients::client::Client,
+    network::server::NetworkEventListener,
     plugins::{
         plugins_manager::PluginsManager, resources_archive::ARCHIVE_CHUNK_SIZE, server_settings::ServerSettings,
     },
+    runtime_plugin::RuntimePlugin,
 };
 
 #[derive(Message)]
 pub struct PlayerMediaLoadedEvent {
-    client: ClientNetwork,
+    client: Client,
     last_index: Option<u32>,
 }
 
@@ -20,7 +22,7 @@ pub struct PlayerMediaLoadedEvent {
 ///
 /// last_index is last downloaded index part
 impl PlayerMediaLoadedEvent {
-    pub fn new(client: ClientNetwork, last_index: Option<u32>) -> Self {
+    pub fn new(client: Client, last_index: Option<u32>) -> Self {
         Self { client, last_index }
     }
 }

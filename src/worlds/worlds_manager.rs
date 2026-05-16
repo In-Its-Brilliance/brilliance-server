@@ -1,12 +1,10 @@
 use bevy::prelude::Resource;
 use bevy::time::Time;
 use bevy_ecs::system::Res;
-use common::utils::debug::SmartRwLock;
 use common::{world_generator::traits::WorldGeneratorSettings, WorldStorageManager};
 use dashmap::DashMap;
-use std::sync::Arc;
 
-use crate::{network::runtime_plugin::RuntimePlugin, plugins::plugins_manager::PluginsManager};
+use crate::{plugins::plugins_manager::PluginsManager, runtime_plugin::RuntimePlugin, utils::Shared};
 
 use super::world_manager::WorldManager;
 
@@ -18,28 +16,7 @@ pub struct WorldsManager {
     worlds: WorldsType,
 }
 
-#[derive(Resource, Clone)]
-pub struct SharedWorldsManager {
-    inner: Arc<SmartRwLock<WorldsManager>>,
-}
-
-impl SharedWorldsManager {
-    pub fn new(inner: Arc<SmartRwLock<WorldsManager>>) -> Self {
-        Self { inner }
-    }
-
-    pub fn read(&self) -> parking_lot::RwLockReadGuard<'_, WorldsManager> {
-        self.inner.read()
-    }
-
-    pub fn write(&self) -> parking_lot::RwLockWriteGuard<'_, WorldsManager> {
-        self.inner.write()
-    }
-
-    pub fn clone_inner(&self) -> Arc<SmartRwLock<WorldsManager>> {
-        self.inner.clone()
-    }
-}
+pub type SharedWorldsManager = Shared<WorldsManager>;
 
 impl Default for WorldsManager {
     fn default() -> Self {

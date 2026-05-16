@@ -1,7 +1,7 @@
 use bevy_ecs::world::World;
 use common::commands::command::{Arg, Command, CommandMatch};
 
-use crate::{console::console_sender::ConsoleSenderType, network::clients_container::SharedClientsContainer};
+use crate::{clients::clients_container::SharedClientsContainer, console::console_sender::ConsoleSenderType};
 
 pub(crate) fn command_parser_kick() -> Command {
     Command::new("kick".to_owned())

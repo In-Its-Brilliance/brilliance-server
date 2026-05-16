@@ -2,8 +2,8 @@ use bevy::prelude::*;
 use network::messages::{NetworkMessageType, ServerMessages};
 use std::time::Duration;
 
+use crate::clients::clients_container::SharedClientsContainer;
 use crate::launch_settings::LaunchSettings;
-use crate::network::clients_container::SharedClientsContainer;
 use crate::network::server::NetworkContainer;
 
 #[derive(Resource)]

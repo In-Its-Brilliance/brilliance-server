@@ -1,4 +1,6 @@
 use crate::{
+    clients::client::{Client, WorldEntity},
+    clients::clients_container::SharedClientsContainer,
     entities::entity::Position,
     worlds::{world_manager::WorldManager, worlds_manager::SharedWorldsManager},
     CHUNKS_DISTANCE, SEND_CHUNK_QUEUE_LIMIT,
@@ -11,11 +13,7 @@ use common::{
 };
 use network::messages::{NetworkMessageType, ServerMessages};
 
-use super::{
-    client_network::{ClientNetwork, WorldEntity},
-    clients_container::SharedClientsContainer,
-    server::NetworkContainer,
-};
+use super::server::NetworkContainer;
 
 pub struct PreparedChunk {
     client_id: u64,
@@ -88,7 +86,7 @@ pub fn send_chunks(
         send_chunks_to_client(
             &*world,
             &world_entity,
-            network_client,
+            &network_client,
             player_watching_chunks,
             &compress_queue.sender,
         );
@@ -103,7 +101,7 @@ pub fn send_chunks(
 fn send_chunks_to_client(
     world_manager: &WorldManager,
     world_entity: &WorldEntity,
-    network_client: &ClientNetwork,
+    network_client: &Client,
     player_watching_chunks: &Vec<ChunkPosition>,
     sender: &flume::Sender<PreparedChunk>,
 ) {

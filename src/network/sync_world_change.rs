@@ -6,7 +6,7 @@ use network::messages::{NetworkMessageType, ServerMessages};
 
 use crate::worlds::world_manager::WorldManager;
 
-use super::client_network::ClientNetwork;
+use crate::clients::client::Client;
 
 pub fn sync_world_block_change(
     world_manager: &WorldManager,
@@ -21,7 +21,7 @@ pub fn sync_world_block_change(
     {
         for entity in entities {
             let entity_ref = ecs.get_entity(*entity).unwrap();
-            let network = entity_ref.get::<ClientNetwork>().unwrap();
+            let network = entity_ref.get::<Client>().unwrap();
 
             let msg = ServerMessages::EditBlock {
                 world_slug: world_manager.get_slug().clone(),

@@ -1,8 +1,6 @@
 use crate::{
-    network::{
-        client_network::ClientNetwork,
-        sync_entities::{sync_entity_despawn, sync_entity_spawn},
-    },
+    clients::client::Client,
+    network::sync_entities::{sync_entity_despawn, sync_entity_spawn},
     worlds::{world_manager::WorldManager, worlds_manager::SharedWorldsManager},
 };
 use bevy_ecs::{component::Component, entity::Entity, system::Command, world::World};
@@ -15,12 +13,12 @@ use super::{
 };
 
 pub struct UpdatePlayerComponent {
-    client: ClientNetwork,
+    client: Client,
     updated_component: EntityComponent,
 }
 
 impl UpdatePlayerComponent {
-    pub fn create(client: ClientNetwork, updated_component: EntityComponent) -> Self {
+    pub fn create(client: Client, updated_component: EntityComponent) -> Self {
         Self {
             client,
             updated_component,
@@ -134,7 +132,7 @@ pub(crate) fn sync_update_entity_component<T: Component + IEntityNetworkComponen
             }
 
             let watcher_entity_ref = ecs.get_entity(*watcher_entity).unwrap();
-            let watcher_client = watcher_entity_ref.get::<ClientNetwork>().unwrap();
+            let watcher_client = watcher_entity_ref.get::<Client>().unwrap();
 
             watcher_client.send_message(NetworkMessageType::ReliableOrdered, &msg);
         }

@@ -1,10 +1,9 @@
 use bevy_ecs::{message::MessageWriter, system::Res};
 
-use crate::network::{
-    client_network::{ClientNetwork, WorldEntity},
-    runtime_plugin::RuntimePlugin,
-    server::NetworkContainer,
-    sync_players::PlayerSpawnEvent,
+use crate::runtime_plugin::RuntimePlugin;
+use crate::{
+    clients::client::{Client, WorldEntity},
+    network::{server::NetworkContainer, sync_players::PlayerSpawnEvent},
 };
 
 use super::worlds_manager::SharedWorldsManager;
@@ -29,7 +28,7 @@ pub fn on_chunk_loaded(
             let ecs = world.get_ecs();
 
             'entity_loop: for entity in ecs.get_chunk_entities(&chunk_position).unwrap() {
-                let Some(network) = entity.get::<ClientNetwork>() else {
+                let Some(network) = entity.get::<Client>() else {
                     continue 'entity_loop;
                 };
 

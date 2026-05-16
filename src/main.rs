@@ -7,16 +7,19 @@ use tracing_subscriber::layer::SubscriberExt;
 use crate::console::ConsolePlugin;
 use crate::{
     logger::{TracingToLogLayer, CONSOLE_LOGGER},
-    network::{runtime_plugin::RuntimePlugin, server::NetworkPlugin},
+    network::server::NetworkPlugin,
+    runtime_plugin::RuntimePlugin,
 };
 use debug::DebugPlugin;
 use launch_settings::{get_log_level, LaunchSettings};
 use plugins::PluginApp;
+use storage::StoragePlugin;
 use worlds::WorldsHandlerPlugin;
 
 #[cfg(all(debug_assertions, feature = "deadlock_detection"))]
 use debug::start_deadlock_detector;
 
+mod clients;
 mod console;
 mod debug;
 mod entities;
@@ -24,6 +27,9 @@ pub mod launch_settings;
 mod logger;
 mod network;
 mod plugins;
+mod runtime_plugin;
+mod storage;
+mod utils;
 mod worlds;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -67,6 +73,7 @@ fn main() {
         TaskPoolPlugin::default(),
         ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(1.0 / common::TARGET_TPS)),
         RuntimePlugin::default(),
+        StoragePlugin::default(),
         PluginApp::default(),
         ConsolePlugin::default(),
         WorldsHandlerPlugin::default(),

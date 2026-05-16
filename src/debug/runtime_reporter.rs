@@ -3,7 +3,7 @@ use common::utils::debug::runtime_storage::SpansType;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use crate::network::runtime_plugin::RuntimePlugin;
+use crate::runtime_plugin::RuntimePlugin;
 
 const SPIKE_LOG_COOLDOWN: Duration = Duration::from_secs(10);
 

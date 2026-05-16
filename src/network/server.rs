@@ -25,9 +25,9 @@ use super::events::{
     on_resources_has_cache::{on_resources_has_cache, ResourcesHasCacheEvent},
     on_settings_loaded::{on_settings_loaded, PlayerSettingsLoadedEvent},
 };
+use crate::clients::client::Client;
+use crate::clients::clients_container::{ClientsContainer, SharedClientsContainer};
 use crate::network::chunks_sender::{flush_compressed_chunks, send_chunks, ChunkCompressQueue};
-use crate::network::client_network::ClientNetwork;
-use crate::network::clients_container::{ClientsContainer, SharedClientsContainer};
 use crate::network::sync_players::PlayerSpawnEvent;
 use crate::plugins::server_plugin::host_functions::set_clients_container_bridge;
 use crate::{console::commands_executer::CommandExecuter, entities::events::on_player_spawn::on_player_spawn};
@@ -103,7 +103,7 @@ impl NetworkContainer {
         Self { server_network }
     }
 
-    pub fn is_connected(&self, client: &ClientNetwork) -> bool {
+    pub fn is_connected(&self, client: &Client) -> bool {
         let network = self.server_network.read();
         network.is_connected(client.get_connection())
     }
@@ -165,7 +165,7 @@ impl NetworkPlugin {
         app.add_systems(Update, on_player_spawn);
     }
 
-    pub(crate) fn send_console_output(client: &ClientNetwork, message: String) {
+    pub(crate) fn send_console_output(client: &Client, message: String) {
         let input = ServerMessages::ConsoleOutput { message: message };
         client.send_message(NetworkMessageType::ReliableOrdered, &input);
     }
@@ -187,6 +187,7 @@ fn span_name_for_client_message(msg: &ClientMessages) -> &'static str {
         ClientMessages::ResourcesHasCache { .. } => "server.drain_network_system::ResourcesHasCache",
         ClientMessages::ResourcesLoaded { .. } => "server.drain_network_system::ResourcesLoaded",
         ClientMessages::SettingsLoaded => "server.drain_network_system::SettingsLoaded",
+        ClientMessages::InventoryAction(..) => "server.drain_network_system::InventoryAction",
     }
 }
 
@@ -305,6 +306,7 @@ fn drain_network_system(
                         .0
                         .emit_event(ClientScriptEvent::create(script_slug, slug, json, client_id));
                 }
+                ClientMessages::InventoryAction(inventory_action) => todo!(),
             }
         }
     }

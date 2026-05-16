@@ -1,11 +1,12 @@
 use crate::{
-    network::sync_world_change::sync_world_block_change,
-    network::{client_network::WorldEntity, clients_container::ClientsContainer},
-    worlds::worlds_manager::WorldsManager,
+    clients::client::WorldEntity, clients::clients_container::ClientsContainer,
+    network::sync_world_change::sync_world_block_change, worlds::worlds_manager::WorldsManager,
 };
 use common::{
     chunks::{block_position::BlockPosition, chunk_data::BlockDataInfo},
+    server_storage::taits::{IServerStorage, PlayerData},
     utils::debug::SmartRwLock,
+    ServerStorageManager,
 };
 use extism::*;
 use serde::Deserialize;
@@ -15,6 +16,7 @@ use std::sync::{Arc, OnceLock};
 pub type SharedHostContext = Arc<parking_lot::Mutex<HostContext>>;
 
 static WORLDS_MANAGER_BRIDGE: OnceLock<Arc<SmartRwLock<WorldsManager>>> = OnceLock::new();
+static SERVER_STORAGE_BRIDGE: OnceLock<Arc<SmartRwLock<ServerStorageManager>>> = OnceLock::new();
 static CLIENTS_CONTAINER_BRIDGE: OnceLock<Arc<SmartRwLock<ClientsContainer>>> = OnceLock::new();
 
 #[derive(Default)]
@@ -49,12 +51,20 @@ pub fn set_worlds_manager_bridge(worlds_manager: Arc<SmartRwLock<WorldsManager>>
     let _ = WORLDS_MANAGER_BRIDGE.set(worlds_manager);
 }
 
+pub fn set_server_storage_bridge(server_storage: Arc<SmartRwLock<ServerStorageManager>>) {
+    let _ = SERVER_STORAGE_BRIDGE.set(server_storage);
+}
+
 pub fn set_clients_container_bridge(clients_container: Arc<SmartRwLock<ClientsContainer>>) {
     let _ = CLIENTS_CONTAINER_BRIDGE.set(clients_container);
 }
 
 fn get_worlds_manager_bridge() -> Option<Arc<SmartRwLock<WorldsManager>>> {
     WORLDS_MANAGER_BRIDGE.get().cloned()
+}
+
+fn get_server_storage_bridge() -> Option<Arc<SmartRwLock<ServerStorageManager>>> {
+    SERVER_STORAGE_BRIDGE.get().cloned()
 }
 
 fn get_clients_container_bridge() -> Option<Arc<SmartRwLock<ClientsContainer>>> {
@@ -135,6 +145,48 @@ pub fn get_player_world_slug_raw(
         .map(|world_entity: WorldEntity| world_entity.get_world_slug().clone())
         .unwrap_or_default();
     plugin.memory_set_val(&mut outputs[0], world_slug)?;
+    Ok(())
+}
+
+pub fn get_or_create_player_data_raw(
+    plugin: &mut CurrentPlugin,
+    inputs: &[Val],
+    outputs: &mut [Val],
+    _user_data: UserData<SharedHostContext>,
+) -> Result<(), Error> {
+    let username: String = plugin.memory_get_val(&inputs[0])?;
+    let server_storage =
+        get_server_storage_bridge().ok_or_else(|| Error::msg("ServerStorage bridge is not initialized"))?;
+
+    let player_data = server_storage
+        .read()
+        .get_or_create_player_data(username)
+        .map_err(Error::msg)?;
+    let player_data_json =
+        serde_json::to_string(&player_data).map_err(|e| Error::msg(format!("Serialize player data failed: {}", e)))?;
+
+    plugin.memory_set_val(&mut outputs[0], player_data_json)?;
+    Ok(())
+}
+
+pub fn save_player_data_raw(
+    plugin: &mut CurrentPlugin,
+    inputs: &[Val],
+    outputs: &mut [Val],
+    _user_data: UserData<SharedHostContext>,
+) -> Result<(), Error> {
+    let player_data_json: String = plugin.memory_get_val(&inputs[0])?;
+    let player_data: PlayerData =
+        serde_json::from_str(&player_data_json).map_err(|e| Error::msg(format!("Invalid player data json: {}", e)))?;
+    let server_storage =
+        get_server_storage_bridge().ok_or_else(|| Error::msg("ServerStorage bridge is not initialized"))?;
+
+    let player_id = server_storage
+        .read()
+        .save_player_data(&player_data)
+        .map_err(Error::msg)?;
+
+    plugin.memory_set_val(&mut outputs[0], player_id.to_string())?;
     Ok(())
 }
 
@@ -221,6 +273,20 @@ pub fn register_all<'a>(builder: PluginBuilder<'a>, ctx: &SharedHostContext) -> 
             [PTR],
             UserData::new(Arc::clone(ctx)),
             get_player_world_slug_raw,
+        )
+        .with_function(
+            "get_or_create_player_data_raw",
+            [PTR],
+            [PTR],
+            UserData::new(Arc::clone(ctx)),
+            get_or_create_player_data_raw,
+        )
+        .with_function(
+            "save_player_data_raw",
+            [PTR],
+            [PTR],
+            UserData::new(Arc::clone(ctx)),
+            save_player_data_raw,
         )
         .with_function(
             "edit_world_block_raw",

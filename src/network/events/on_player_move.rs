@@ -8,9 +8,9 @@ use common::chunks::block_position::BlockPositionTrait;
 use common::utils::events::EventReader;
 use network::entities::AnimationState;
 
+use crate::clients::client::{Client, WorldEntity};
 use crate::entities::entity::Position;
 use crate::entities::entity::Rotation;
-use crate::network::client_network::{ClientNetwork, WorldEntity};
 use crate::network::server::NetworkEventListener;
 use crate::network::sync_players::sync_player_move;
 use crate::worlds::world_manager::WorldManager;
@@ -18,14 +18,14 @@ use crate::worlds::worlds_manager::SharedWorldsManager;
 
 #[derive(Message)]
 pub struct PlayerMoveEvent {
-    client: ClientNetwork,
+    client: Client,
     position: Position,
     rotation: Rotation,
     animation_state: AnimationState,
 }
 
 impl PlayerMoveEvent {
-    pub fn new(client: ClientNetwork, position: Position, rotation: Rotation, animation_state: AnimationState) -> Self {
+    pub fn new(client: Client, position: Position, rotation: Rotation, animation_state: AnimationState) -> Self {
         Self {
             client,
             position,
@@ -102,7 +102,7 @@ pub fn move_player(
         let ecs = world_manager.get_ecs();
         let entity_ref = ecs.get_entity(world_entity.get_entity()).unwrap();
 
-        let network = entity_ref.get::<ClientNetwork>().unwrap();
+        let network = entity_ref.get::<Client>().unwrap();
         network.send_chunks_to_unload(world_entity.get_world_slug(), change.abandoned_chunks.clone());
     }
 

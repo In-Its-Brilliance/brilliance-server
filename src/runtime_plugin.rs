@@ -10,7 +10,7 @@ use crate::console::console_handler::ConsoleHandler;
 use crate::plugins::plugins_manager::PluginsManager;
 use crate::worlds::worlds_manager::SharedWorldsManager;
 
-use crate::clients::SharedClientsContainer;
+use crate::clients::clients_container::SharedClientsContainer;
 
 lazy_static! {
     static ref SERVER_STATE: Arc<RwLock<ServerState>> = Arc::new(RwLock::new(ServerState::STARTED));

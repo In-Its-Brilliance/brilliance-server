@@ -1,6 +1,6 @@
+use crate::clients::client::Client;
 use crate::console::console_sender::ConsoleSenderType;
 use crate::entities::entity::{Position, Rotation};
-use crate::network::client_network::ClientNetwork;
 use crate::network::events::on_player_move::move_player;
 use bevy::time::Time;
 use bevy_ecs::world::World;
@@ -65,7 +65,7 @@ pub(crate) fn command_teleport(
     let server_time = world.resource::<Time>().elapsed().as_secs_f64();
     let worlds_manager = world.resource::<SharedWorldsManager>().clone();
 
-    let client = match sender.as_any().downcast_ref::<ClientNetwork>() {
+    let client = match sender.as_any().downcast_ref::<Client>() {
         Some(c) => c,
         None => {
             sender.send_console_message("This command is allowed to be used only for players".to_string());

@@ -4,14 +4,12 @@ use network::entities::AnimationState;
 use network::messages::{NetworkMessageType, ServerMessages};
 
 use crate::{
+    clients::client::{Client, WorldEntity},
     entities::skin::EntitySkinComponent,
     worlds::world_manager::{ChunkChanged, WorldManager},
 };
 
-use super::{
-    client_network::{ClientNetwork, WorldEntity},
-    sync_entities::{send_start_streaming_entity, sync_entity_move},
-};
+use super::sync_entities::{send_start_streaming_entity, sync_entity_move};
 
 #[derive(Message)]
 pub struct PlayerSpawnEvent {
@@ -29,7 +27,7 @@ impl PlayerSpawnEvent {
 pub fn send_entities_for_player(world_manager: &WorldManager, target_entity: Entity) {
     let ecs = world_manager.get_ecs();
     let entity_ref = ecs.get_entity(target_entity).unwrap();
-    if let Some(client) = entity_ref.get::<ClientNetwork>() {
+    if let Some(client) = entity_ref.get::<Client>() {
         // Sends all existing entities from the player's line of sight
         if let Some(player_chunks) = world_manager.get_chunks_map().get_watching_chunks(&target_entity) {
             for chunk in player_chunks {
@@ -57,7 +55,7 @@ pub fn send_entities_for_player(world_manager: &WorldManager, target_entity: Ent
 /// Выполняет:
 ///   • Вызыов синхронихации объекта игрока через sync_entity_move
 ///
-/// - вызывает для ClientNetwork:
+/// - вызывает для Client:
 ///   • отправлять ему StopStreamingEntity из старых чанков
 ///   • и StartStreamingEntity для новых
 pub fn sync_player_move(
@@ -75,7 +73,7 @@ pub fn sync_player_move(
     let entity_ref = ecs.get_entity(target_entity).unwrap();
 
     if let Some(change) = chunks_changed {
-        let client = entity_ref.get::<ClientNetwork>().unwrap();
+        let client = entity_ref.get::<Client>().unwrap();
 
         // Stop streaming entities from unseen chunks
         let mut ids: Vec<u32> = Default::default();

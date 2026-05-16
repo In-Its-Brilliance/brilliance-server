@@ -15,7 +15,7 @@ use super::{
     plugin_container::PluginContainer, resources_archive::ResourcesArchive,
     server_plugin::plugin_instance::WASMPluginManager, server_settings::ServerSettings,
 };
-use crate::{launch_settings::LaunchSettings, network::runtime_plugin::RuntimePlugin};
+use crate::{launch_settings::LaunchSettings, runtime_plugin::RuntimePlugin};
 
 #[derive(Resource, Default)]
 pub struct PluginsManager {

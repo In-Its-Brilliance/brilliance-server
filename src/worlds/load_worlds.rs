@@ -11,8 +11,8 @@ use rand::Rng;
 
 use crate::{
     launch_settings::LaunchSettings,
-    network::runtime_plugin::RuntimePlugin,
     plugins::{plugins_manager::PluginsManager, server_settings::ServerSettings},
+    runtime_plugin::RuntimePlugin,
 };
 
 use super::worlds_manager::{SharedWorldsManager, WorldsManager};

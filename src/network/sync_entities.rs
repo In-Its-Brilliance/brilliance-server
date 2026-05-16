@@ -17,9 +17,9 @@ use crate::{
     worlds::world_manager::{ChunkChanged, WorldManager},
 };
 
-use super::client_network::ClientNetwork;
+use crate::clients::client::Client;
 
-pub(crate) fn send_start_streaming_entity(target_client: &ClientNetwork, entity_ref: EntityRef, world_slug: String) {
+pub(crate) fn send_start_streaming_entity(target_client: &Client, entity_ref: EntityRef, world_slug: String) {
     let position = entity_ref.get::<Position>().unwrap();
     let rotation = entity_ref.get::<Rotation>().unwrap();
     let skin = entity_ref
@@ -72,7 +72,7 @@ pub(crate) fn sync_entity_spawn(world_manager: &WorldManager, entity: Entity) {
             }
 
             let watcher_entity_ref = ecs.get_entity(*watcher_entity).unwrap();
-            let watcher_client = watcher_entity_ref.get::<ClientNetwork>().unwrap();
+            let watcher_client = watcher_entity_ref.get::<Client>().unwrap();
 
             send_start_streaming_entity(&watcher_client, entity_ref, world_manager.get_slug().clone());
         }
@@ -126,7 +126,7 @@ pub(crate) fn sync_entity_move(
                     }
 
                     let watcher_entity_ref = ecs.get_entity(*watcher_entity).unwrap();
-                    let watcher_client = watcher_entity_ref.get::<ClientNetwork>().unwrap();
+                    let watcher_client = watcher_entity_ref.get::<Client>().unwrap();
                     watcher_client.send_message(NetworkMessageType::Unreliable, &move_msg);
                 }
             }
@@ -148,7 +148,7 @@ pub(crate) fn sync_entity_move(
                 }
 
                 let watcher_entity_ref = ecs.get_entity(*old_watcher).unwrap();
-                let watcher_client = watcher_entity_ref.get::<ClientNetwork>().unwrap();
+                let watcher_client = watcher_entity_ref.get::<Client>().unwrap();
 
                 // If watcher can see old and new chunk
                 if new_watchers.contains(&old_watcher) {
@@ -168,7 +168,7 @@ pub(crate) fn sync_entity_move(
                 // New entity in range
                 if !old_watchers.contains(&new_watcher) {
                     let watcher_entity_ref = ecs.get_entity(*new_watcher).unwrap();
-                    let watcher_client = watcher_entity_ref.get::<ClientNetwork>().unwrap();
+                    let watcher_client = watcher_entity_ref.get::<Client>().unwrap();
 
                     send_start_streaming_entity(&*watcher_client, entity_ref, world_manager.get_slug().clone());
                 }
@@ -200,7 +200,7 @@ pub fn sync_entity_despawn(world_manager: &WorldManager, entity: Entity) {
             }
 
             let watcher_entity_ref = ecs.get_entity(*watcher_entity).unwrap();
-            let watcher_client = watcher_entity_ref.get::<ClientNetwork>().unwrap();
+            let watcher_client = watcher_entity_ref.get::<Client>().unwrap();
 
             watcher_client.send_message(NetworkMessageType::ReliableOrdered, &stop_msg);
         }

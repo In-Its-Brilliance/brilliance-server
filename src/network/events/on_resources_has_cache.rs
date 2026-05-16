@@ -3,21 +3,21 @@ use bevy_ecs::system::Res;
 use common::utils::events::{EventInterface, EventReader};
 use network::messages::{NetworkMessageType, ServerMessages};
 
-use crate::network::client_network::ClientNetwork;
+use crate::clients::client::Client;
 use crate::network::events::on_media_loaded::PlayerMediaLoadedEvent;
-use crate::network::runtime_plugin::RuntimePlugin;
 use crate::network::server::{NetworkEventChannel, NetworkEventListener};
 use crate::plugins::plugins_manager::PluginsManager;
 use crate::plugins::resources_archive::ARCHIVE_CHUNK_SIZE;
+use crate::runtime_plugin::RuntimePlugin;
 
 #[derive(Message)]
 pub struct ResourcesHasCacheEvent {
-    client: ClientNetwork,
+    client: Client,
     exists: bool,
 }
 
 impl ResourcesHasCacheEvent {
-    pub fn new(client: ClientNetwork, exists: bool) -> Self {
+    pub fn new(client: Client, exists: bool) -> Self {
         Self { client, exists }
     }
 }

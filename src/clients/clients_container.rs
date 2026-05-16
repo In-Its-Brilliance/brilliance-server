@@ -2,13 +2,11 @@ use ahash::AHashMap;
 use bevy_ecs::resource::Resource;
 use network::NetworkServerConnection;
 
-use crate::utils::Shared;
-
-use super::client_network::ClientNetwork;
+use crate::{clients::client::Client, utils::Shared};
 
 #[derive(Resource)]
 pub struct ClientsContainer {
-    players: AHashMap<u64, ClientNetwork>,
+    players: AHashMap<u64, Client>,
 }
 
 pub type SharedClientsContainer = Shared<ClientsContainer>;
@@ -22,12 +20,12 @@ impl Default for ClientsContainer {
 }
 
 impl ClientsContainer {
-    pub fn iter(&self) -> std::collections::hash_map::Iter<'_, u64, ClientNetwork> {
+    pub fn iter(&self) -> std::collections::hash_map::Iter<'_, u64, Client> {
         self.players.iter()
     }
 
     pub fn add(&mut self, connection: NetworkServerConnection) {
-        let network = ClientNetwork::new(connection);
+        let network = Client::new(connection);
         self.players.insert(network.get_client_id(), network);
     }
 
@@ -41,11 +39,11 @@ impl ClientsContainer {
         }
     }
 
-    pub fn get(&self, key: &u64) -> Option<&ClientNetwork> {
+    pub fn get(&self, key: &u64) -> Option<&Client> {
         self.players.get(key)
     }
 
-    pub fn get_by_login(&self, login: &String) -> Option<&ClientNetwork> {
+    pub fn get_by_login(&self, login: &String) -> Option<&Client> {
         let mut client_id: Option<u64> = None;
 
         for (_client_id, client) in self.players.iter() {

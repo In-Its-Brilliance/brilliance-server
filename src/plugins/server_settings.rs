@@ -1,4 +1,4 @@
-use crate::{launch_settings::LaunchSettings, network::runtime_plugin::RuntimePlugin};
+use crate::{launch_settings::LaunchSettings, runtime_plugin::RuntimePlugin};
 use bevy::prelude::{Res, ResMut, Resource};
 use common::{
     blocks::{block_info::generate_block_id_map, block_type::BlockType},

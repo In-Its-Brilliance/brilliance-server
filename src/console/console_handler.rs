@@ -2,7 +2,7 @@ use super::{
     completer::{CustomCompleter, CustomHinter},
     helper::CustomHelper,
 };
-use crate::network::runtime_plugin::RuntimePlugin;
+use crate::runtime_plugin::RuntimePlugin;
 use bevy_ecs::resource::Resource;
 use chrono::Local;
 use common::utils::colors::parse_to_terminal_colors;

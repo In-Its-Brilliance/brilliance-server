@@ -2,13 +2,13 @@ use crate::network::server::NetworkEventListener;
 use crate::worlds::commands::SpawnPlayer;
 use crate::worlds::worlds_manager::SharedWorldsManager;
 use crate::{
+    clients::client::Client,
     entities::{
         entity::{Position, Rotation},
         entity_tag::EntityTagComponent,
         skin::EntitySkinComponent,
         EntityComponent,
     },
-    network::client_network::ClientNetwork,
 };
 use bevy::prelude::{Commands, Res};
 use bevy_ecs::message::Message;
@@ -17,11 +17,11 @@ use network::entities::{entity_tag::EntityTagData, EntitySkinData};
 
 #[derive(Message)]
 pub struct PlayerSettingsLoadedEvent {
-    client: ClientNetwork,
+    client: Client,
 }
 
 impl PlayerSettingsLoadedEvent {
-    pub fn new(client: ClientNetwork) -> Self {
+    pub fn new(client: Client) -> Self {
         Self { client }
     }
 }

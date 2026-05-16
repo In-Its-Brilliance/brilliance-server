@@ -2,16 +2,16 @@ use bevy_ecs::message::Message;
 use bevy_ecs::system::Res;
 use common::utils::events::EventReader;
 
-use crate::network::client_network::ClientNetwork;
+use crate::clients::client::Client;
 use crate::network::server::NetworkEventListener;
 
 #[derive(Message)]
 pub struct PlayerConnectionEvent {
-    client: ClientNetwork,
+    client: Client,
 }
 
 impl PlayerConnectionEvent {
-    pub fn new(client: ClientNetwork) -> Self {
+    pub fn new(client: Client) -> Self {
         Self { client }
     }
 }

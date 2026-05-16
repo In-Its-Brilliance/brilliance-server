@@ -9,7 +9,7 @@ use common::{
 };
 
 use super::{chunk_column::ChunkColumn, chunks_map::StorageLock};
-use crate::{network::runtime_plugin::RuntimePlugin, plugins::server_plugin::plugin_instance::WASMPluginManager};
+use crate::{plugins::server_plugin::plugin_instance::WASMPluginManager, runtime_plugin::RuntimePlugin};
 
 pub(crate) fn load_chunk(
     plugin: Arc<WASMPluginManager>,

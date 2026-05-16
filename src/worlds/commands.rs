@@ -5,16 +5,17 @@ use network::messages::{NetworkMessageType, ServerMessages};
 
 use super::worlds_manager::SharedWorldsManager;
 use crate::{
+    clients::client::Client,
     entities::{
         entity::{Position, Rotation},
         EntityComponent,
     },
-    network::{client_network::ClientNetwork, sync_players::PlayerSpawnEvent},
+    network::sync_players::PlayerSpawnEvent,
 };
 
 pub struct SpawnPlayer {
     world_slug: String,
-    client: ClientNetwork,
+    client: Client,
     position: Position,
     rotation: Rotation,
     components: Vec<EntityComponent>,
@@ -23,7 +24,7 @@ pub struct SpawnPlayer {
 impl SpawnPlayer {
     pub fn create(
         world_slug: String,
-        client: ClientNetwork,
+        client: Client,
         position: Position,
         rotation: Rotation,
         components: Vec<EntityComponent>,
@@ -40,14 +41,21 @@ impl SpawnPlayer {
 
 impl Command for SpawnPlayer {
     fn apply(self, world: &mut World) {
-        let worlds_manager = world.resource::<SharedWorldsManager>().clone();
-        let worlds_manager = worlds_manager.write();
-        let Some(mut world_manager) = worlds_manager.get_world_manager_mut(&self.world_slug) else {
-            panic!("SpawnPlayer: world \"{}\" doesn't exists", self.world_slug);
-        };
+        let (world_entity, is_chunk_loaded) = {
+            let worlds_manager = world.resource::<SharedWorldsManager>().clone();
+            let worlds_manager = worlds_manager.write();
+            let Some(mut world_manager) = worlds_manager.get_world_manager_mut(&self.world_slug) else {
+                panic!("SpawnPlayer: world \"{}\" doesn't exists", self.world_slug);
+            };
 
-        let bundle = (self.position.clone(), self.rotation, self.client.clone());
-        let world_entity = world_manager.spawn_player(self.position, bundle, self.components.clone());
+            let bundle = (self.position.clone(), self.rotation, self.client.clone());
+            let world_entity = world_manager.spawn_player(self.position, bundle, self.components.clone());
+            let is_chunk_loaded = world_manager
+                .get_chunks_map()
+                .is_chunk_loaded(&self.position.get_chunk_position());
+
+            (world_entity, is_chunk_loaded)
+        };
 
         self.client.set_world_entity(Some(world_entity.clone()));
 
@@ -61,10 +69,7 @@ impl Command for SpawnPlayer {
         self.client
             .network_send_spawn(&self.position, &self.rotation, &self.components);
 
-        if world_manager
-            .get_chunks_map()
-            .is_chunk_loaded(&self.position.get_chunk_position())
-        {
+        if is_chunk_loaded {
             world
                 .write_message(PlayerSpawnEvent::new(world_entity.clone()))
                 .unwrap();

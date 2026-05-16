@@ -1,7 +1,7 @@
 use super::ecs::Ecs;
+use crate::clients::client::WorldEntity;
 use crate::entities::entity::{Position, Rotation};
 use crate::entities::EntityComponent;
-use crate::network::client_network::WorldEntity;
 use crate::plugins::server_plugin::plugin_instance::WASMPluginManager;
 use crate::worlds::chunks::chunks_map::ChunkMap;
 use crate::CHUNKS_DISTANCE;

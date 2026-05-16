@@ -1,5 +1,5 @@
 use crate::{
-    network::runtime_plugin::RuntimePlugin, plugins::server_plugin::plugin_instance::WASMPluginManager,
+    plugins::server_plugin::plugin_instance::WASMPluginManager, runtime_plugin::RuntimePlugin,
     worlds::world_manager::ChunkChanged, CHUNKS_DESPAWN_TIMER,
 };
 use ahash::AHashMap;
@@ -123,7 +123,7 @@ impl ChunkMap {
 
     /// Get Entities of all players watching the chunk
     ///
-    /// All of them contains ClientNetwork
+    /// All of them contains Client
     pub fn get_chunk_watchers(&self, chunk_position: &ChunkPosition) -> Option<&Vec<Entity>> {
         self.chunks_load_state.get_chunk_watchers(&chunk_position)
     }

@@ -3,17 +3,18 @@ use bevy_ecs::system::Res;
 use common::utils::events::{EventInterface, EventReader};
 use network::messages::{NetworkMessageType, ServerMessages};
 
-use crate::network::client_network::ClientInfo;
-use crate::network::client_network::ClientNetwork;
-use crate::network::clients_container::SharedClientsContainer;
+use crate::clients::client::Client;
+use crate::clients::client::ClientInfo;
+use crate::clients::clients_container::SharedClientsContainer;
 use crate::network::events::on_media_loaded::PlayerMediaLoadedEvent;
-use crate::network::runtime_plugin::RuntimePlugin;
 use crate::network::server::{NetworkEventChannel, NetworkEventListener};
 use crate::plugins::plugins_manager::PluginsManager;
+use crate::runtime_plugin::RuntimePlugin;
+use crate::storage::storage_manager::SharedStorageManager;
 
 #[derive(Message)]
 pub struct PlayerConnectionInfoEvent {
-    client: ClientNetwork,
+    client: Client,
     pub login: String,
     pub version: String,
     pub architecture: String,
@@ -21,13 +22,7 @@ pub struct PlayerConnectionInfoEvent {
 }
 
 impl PlayerConnectionInfoEvent {
-    pub fn new(
-        client: ClientNetwork,
-        login: String,
-        version: String,
-        architecture: String,
-        rendering_device: String,
-    ) -> Self {
+    pub fn new(client: Client, login: String, version: String, architecture: String, rendering_device: String) -> Self {
         Self {
             client,
             login,
@@ -43,6 +38,7 @@ pub fn on_connection_info(
     plugins_manager: Res<PluginsManager>,
     player_media_loaded_channel: Res<NetworkEventChannel<PlayerMediaLoadedEvent>>,
     clients: Res<SharedClientsContainer>,
+    storage: Res<SharedStorageManager>,
 ) {
     let _s = crate::span!("events.on_connection_info");
     if RuntimePlugin::is_stopped() {
@@ -66,6 +62,12 @@ pub fn on_connection_info(
 
         let client_info = ClientInfo::new(&event);
         event.client.set_client_info(client_info.clone());
+        let storage_guard = storage.read();
+        if let Err(e) = event.client.read_player_data(&storage_guard.read_server_storage()) {
+            log::error!(target: "storage", "&cFailed to load player data for &4{}&c: {}", client_info.get_login(), e);
+            event.client.disconnect(Some("Failed to load player data".to_string()));
+            return;
+        };
 
         log::info!(
             target: "network",

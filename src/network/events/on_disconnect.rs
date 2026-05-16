@@ -2,22 +2,21 @@ use bevy_ecs::{message::Message, system::Res};
 use common::utils::events::EventReader;
 
 use crate::{
+    clients::{client::Client, clients_container::SharedClientsContainer},
     entities::skin::EntitySkinComponent,
-    network::{
-        client_network::ClientNetwork, clients_container::SharedClientsContainer, server::NetworkEventListener,
-        sync_entities::sync_entity_despawn,
-    },
+    network::{server::NetworkEventListener, sync_entities::sync_entity_despawn},
+    storage::storage_manager::SharedStorageManager,
     worlds::worlds_manager::SharedWorldsManager,
 };
 
 #[derive(Message)]
 pub struct PlayerDisconnectEvent {
-    client: ClientNetwork,
+    client: Client,
     reason: String,
 }
 
 impl PlayerDisconnectEvent {
-    pub fn new(client: ClientNetwork, reason: String) -> Self {
+    pub fn new(client: Client, reason: String) -> Self {
         Self { client, reason }
     }
 }
@@ -25,6 +24,7 @@ impl PlayerDisconnectEvent {
 pub fn on_disconnect(
     disconnection_events: Res<NetworkEventListener<PlayerDisconnectEvent>>,
     clients: Res<SharedClientsContainer>,
+    storage: Res<SharedStorageManager>,
     worlds_manager: Res<SharedWorldsManager>,
 ) {
     let _s = crate::span!("events.on_disconnect");
@@ -36,6 +36,11 @@ pub fn on_disconnect(
                 login = i.get_login(),
                 reason = event.reason,
             );
+        }
+
+        let storage_guard = storage.read();
+        if let Err(e) = event.client.save_player_data(&storage_guard.read_server_storage()) {
+            log::error!(target: "storage", "&cFailed to save player data for client &4{}&c: {}", event.client.get_client_id(), e);
         }
 
         // Check if player was in the world, despawn if so
