@@ -20,6 +20,7 @@ use super::events::{
     on_connection::{on_connection, PlayerConnectionEvent},
     on_connection_info::{on_connection_info, PlayerConnectionInfoEvent},
     on_disconnect::{on_disconnect, PlayerDisconnectEvent},
+    on_inventory_action::{on_inventory_action, InventoryActionEvent},
     on_media_loaded::{on_media_loaded, PlayerMediaLoadedEvent},
     on_player_move::{on_player_move, PlayerMoveEvent},
     on_resources_has_cache::{on_resources_has_cache, ResourcesHasCacheEvent},
@@ -136,6 +137,7 @@ impl NetworkPlugin {
         register_network_event::<PlayerMediaLoadedEvent>(app);
         register_network_event::<PlayerSettingsLoadedEvent>(app);
         register_network_event::<ClientScriptEvent>(app);
+        register_network_event::<InventoryActionEvent>(app);
 
         // Core drain system (replaces receive_message_system + handle_events_system)
         app.add_systems(Update, drain_network_system);
@@ -157,6 +159,7 @@ impl NetworkPlugin {
         app.add_systems(Update, on_disconnect.after(drain_network_system));
         app.add_systems(Update, on_player_move.after(drain_network_system));
         app.add_systems(Update, on_media_loaded.after(drain_network_system));
+        app.add_systems(Update, on_inventory_action.after(drain_network_system));
         app.add_systems(Update, on_settings_loaded.after(drain_network_system));
         app.add_systems(Update, on_client_script_event.after(drain_network_system));
 
@@ -194,7 +197,6 @@ fn span_name_for_client_message(msg: &ClientMessages) -> &'static str {
 fn drain_network_system(
     network_container: Res<NetworkContainer>,
     clients: Res<SharedClientsContainer>,
-
     connection_channel: Res<NetworkEventChannel<PlayerConnectionEvent>>,
     disconnect_channel: Res<NetworkEventChannel<PlayerDisconnectEvent>>,
     resources_has_cache_channel: Res<NetworkEventChannel<ResourcesHasCacheEvent>>,
@@ -203,6 +205,7 @@ fn drain_network_system(
     player_media_loaded_channel: Res<NetworkEventChannel<PlayerMediaLoadedEvent>>,
     settings_loaded_channel: Res<NetworkEventChannel<PlayerSettingsLoadedEvent>>,
     client_script_channel: Res<NetworkEventChannel<ClientScriptEvent>>,
+    inventory_action_channel: Res<NetworkEventChannel<InventoryActionEvent>>,
 ) {
     #[cfg(feature = "trace")]
     let _span = bevy_utils::tracing::info_span!("server.drain_network_system").entered();
@@ -306,7 +309,11 @@ fn drain_network_system(
                         .0
                         .emit_event(ClientScriptEvent::create(script_slug, slug, json, client_id));
                 }
-                ClientMessages::InventoryAction(_inventory_action) => todo!(),
+                ClientMessages::InventoryAction(inventory_action) => {
+                    inventory_action_channel
+                        .0
+                        .emit_event(InventoryActionEvent::new(client.clone(), inventory_action));
+                }
             }
         }
     }

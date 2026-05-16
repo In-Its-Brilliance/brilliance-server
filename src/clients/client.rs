@@ -153,6 +153,12 @@ impl Client {
         .ok()
     }
 
+    pub fn with_player_data_mut<R>(&self, f: impl FnOnce(&mut PlayerData) -> R) -> Option<R> {
+        let mut player_data = self.player_data.write();
+        let player_data = player_data.as_mut()?;
+        Some(f(player_data))
+    }
+
     pub fn read_player_data(&self, storage: &ServerStorageManager) -> Result<(), String> {
         let client_info = self.get_client_info().unwrap();
         let login = client_info.get_login();

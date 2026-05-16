@@ -1,6 +1,7 @@
 // Events from the network
 
 pub mod on_client_script_event;
+pub mod on_inventory_action;
 pub mod on_connection;
 pub mod on_connection_info;
 pub mod on_disconnect;

@@ -3,6 +3,7 @@ use crate::clients::client::WorldEntity;
 use crate::entities::entity::{Position, Rotation};
 use crate::entities::EntityComponent;
 use crate::plugins::server_plugin::plugin_instance::WASMPluginManager;
+use crate::inventory::inventory_manager::InventoryManager;
 use crate::worlds::chunks::chunks_map::ChunkMap;
 use crate::CHUNKS_DISTANCE;
 use bevy_ecs::bundle::Bundle;
@@ -143,7 +144,8 @@ impl WorldManager {
         Ok(())
     }
 
-    pub fn despawn_player(&mut self, world_entity: &WorldEntity) {
+    pub fn despawn_player(&mut self, world_entity: &WorldEntity, inventory_manager: &mut InventoryManager) {
+        inventory_manager.state_mut().unwatch_entity(&world_entity.get_entity());
         self.get_chunks_map_mut().stop_chunks_render(world_entity.get_entity());
 
         let player_entity = self.ecs.get_entity(world_entity.get_entity()).unwrap();
@@ -156,9 +158,13 @@ impl WorldManager {
     }
 
     /// Proxy for sending update_chunks
-    pub fn update_chunks_state(&mut self, delta: Duration, wasm_plugin_manager: Arc<WASMPluginManager>) {
+    pub fn update_chunks_state(
+        &mut self,
+        delta: Duration,
+        wasm_plugin_manager: Arc<WASMPluginManager>,
+        inventory_manager: &mut InventoryManager,
+    ) {
         let world_slug = self.get_slug().clone();
-        self.chunks_map
-            .update_chunks_state(delta, &world_slug, wasm_plugin_manager);
+        self.chunks_map.update_chunks_state(delta, &world_slug, wasm_plugin_manager, inventory_manager);
     }
 }

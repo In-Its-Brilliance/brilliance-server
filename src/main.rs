@@ -12,6 +12,7 @@ use crate::{
 };
 use debug::DebugPlugin;
 use launch_settings::{get_log_level, LaunchSettings};
+use inventory::InventoryPlugin;
 use plugins::PluginApp;
 use storage::StoragePlugin;
 use worlds::WorldsHandlerPlugin;
@@ -24,6 +25,7 @@ mod console;
 mod debug;
 mod entities;
 pub mod launch_settings;
+mod inventory;
 mod logger;
 mod network;
 mod plugins;
@@ -74,6 +76,7 @@ fn main() {
         ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(1.0 / common::TARGET_TPS)),
         RuntimePlugin::default(),
         StoragePlugin::default(),
+        InventoryPlugin::default(),
         PluginApp::default(),
         ConsolePlugin::default(),
         WorldsHandlerPlugin::default(),

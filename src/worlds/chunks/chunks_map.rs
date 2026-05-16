@@ -1,4 +1,5 @@
 use crate::{
+    inventory::inventory_manager::InventoryManager,
     plugins::server_plugin::plugin_instance::WASMPluginManager, runtime_plugin::RuntimePlugin,
     worlds::world_manager::ChunkChanged, CHUNKS_DESPAWN_TIMER,
 };
@@ -234,6 +235,7 @@ impl ChunkMap {
         delta: Duration,
         world_slug: &String,
         wasm_plugin_manager: Arc<WASMPluginManager>,
+        inventory_manager: &mut InventoryManager,
     ) {
         // Update chunks despawn timer
         // Increase ONLY of noone looking at the chunk
@@ -266,6 +268,8 @@ impl ChunkMap {
             let chunk_storage = chunk_column.get_chunk_storage().clone();
             let chunk_position = *chunk_column.get_chunk_position();
             let storage = self.storage.clone();
+
+            inventory_manager.state_mut().unregister_chunk_inventories(&chunk_storage);
 
             rayon::spawn(move || {
                 if RuntimePlugin::is_stopped() {
@@ -434,12 +438,13 @@ ___________
     fn test_update_chunks() {
         let wasm_plugin_manager: Arc<WASMPluginManager> = Default::default();
         let mut chunk_map = ChunkMap::default();
+        let mut inventory_manager = crate::inventory::inventory_manager::InventoryManager::default();
         let world_slug = "default".to_string();
         let entity = Entity::from_raw_u32(0).unwrap();
         let pos = ChunkPosition::new(0, 0);
 
         chunk_map.chunks_load_state.insert_ticket(pos.clone(), entity.clone());
-        chunk_map.update_chunks_state(Duration::from_secs(1), &world_slug, wasm_plugin_manager.clone());
+        chunk_map.update_chunks_state(Duration::from_secs(1), &world_slug, wasm_plugin_manager.clone(), &mut inventory_manager);
         assert_eq!(chunk_map.chunks.len(), 1, "One chunk must be created");
 
         // Set created chunk loaded (set_chunk_data)
@@ -457,7 +462,7 @@ ___________
             .set_despawn_timer(CHUNKS_DESPAWN_TIMER);
 
         chunk_map.chunks_load_state.remove_ticket(&pos, &entity);
-        chunk_map.update_chunks_state(Duration::from_secs(1), &world_slug, wasm_plugin_manager);
+        chunk_map.update_chunks_state(Duration::from_secs(1), &world_slug, wasm_plugin_manager, &mut inventory_manager);
         assert_eq!(
             chunk_map.chunks.len(),
             0,

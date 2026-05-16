@@ -5,7 +5,8 @@ use common::{
 use std::sync::Arc;
 
 use crate::{
-    launch_settings::LaunchSettings, plugins::server_plugin::host_functions::set_server_storage_bridge,
+    launch_settings::LaunchSettings,
+    plugins::server_plugin::host_functions::set_server_storage_bridge,
     runtime_plugin::RuntimePlugin, utils::Shared,
 };
 
@@ -42,11 +43,7 @@ pub(crate) fn init_server_storage(mut commands: Commands, launch_settings: Res<L
     };
 
     let server_storage = Shared::new(Arc::new(timed_lock!(storage, "server_storage_manager")));
-    let server_storage_bridge = server_storage.clone_inner();
-    let storage_manager = SharedStorageManager::new(Arc::new(timed_lock!(
-        StorageManager::new(server_storage),
-        "storage_manager"
-    )));
-    set_server_storage_bridge(server_storage_bridge);
+    let storage_manager = SharedStorageManager::new(Arc::new(timed_lock!(StorageManager::new(server_storage), "storage_manager")));
+    set_server_storage_bridge(storage_manager.clone_inner());
     commands.insert_resource(storage_manager);
 }

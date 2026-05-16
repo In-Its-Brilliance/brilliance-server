@@ -4,6 +4,7 @@ use bevy_ecs::system::Res;
 use common::{world_generator::traits::WorldGeneratorSettings, WorldStorageManager};
 use dashmap::DashMap;
 
+use crate::inventory::SharedInventoryManager;
 use crate::{plugins::plugins_manager::PluginsManager, runtime_plugin::RuntimePlugin, utils::Shared};
 
 use super::world_manager::WorldManager;
@@ -139,17 +140,31 @@ pub fn update_world_chunks(
     worlds_manager: Res<SharedWorldsManager>,
     time: Res<Time>,
     plugins_manager: Res<PluginsManager>,
+    inventory_manager: Res<SharedInventoryManager>,
 ) {
+    let mut inventory_manager = inventory_manager.write();
     let _s = crate::span!("worlds.update_world_chunks");
     if RuntimePlugin::is_stopped() {
         return;
     }
     let worlds_manager_guard = worlds_manager.read();
     for mut world in worlds_manager_guard.iter_worlds_mut() {
+        let loaded_chunks = world.get_chunks_map().drain_loaded_chunks().collect::<Vec<_>>();
+        for chunk_position in loaded_chunks {
+            let world_slug = world.get_slug().clone();
+            let Some(chunk_column_arc) = world.get_chunks_map().get_chunk_column_arc(&chunk_position) else {
+                continue;
+            };
+            let chunk_storage = chunk_column_arc.read().get_chunk_storage().clone();
+            inventory_manager
+                .state_mut()
+                .register_chunk_inventories(world_slug.clone(), chunk_position, &chunk_storage);
+        }
+
         let wasm_plugin_manager = plugins_manager
             .get_world_generator(&world.get_world_generator())
             .expect("world_generator is required");
 
-        world.update_chunks_state(time.delta(), wasm_plugin_manager);
+        world.update_chunks_state(time.delta(), wasm_plugin_manager, &mut inventory_manager);
     }
 }
