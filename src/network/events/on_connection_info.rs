@@ -1,5 +1,6 @@
 use bevy_ecs::message::Message;
 use bevy_ecs::system::Res;
+use common::inventory::inventory::InventoryType;
 use common::utils::events::{EventInterface, EventReader};
 use network::messages::{NetworkMessageType, ServerMessages};
 
@@ -8,6 +9,7 @@ use crate::clients::client::ClientInfo;
 use crate::clients::clients_container::SharedClientsContainer;
 use crate::network::events::on_media_loaded::PlayerMediaLoadedEvent;
 use crate::network::server::{NetworkEventChannel, NetworkEventListener};
+use crate::network::sync_inventory::send_inventory_start_to_client;
 use crate::plugins::plugins_manager::PluginsManager;
 use crate::runtime_plugin::RuntimePlugin;
 use crate::storage::storage_manager::SharedStorageManager;
@@ -68,6 +70,14 @@ pub fn on_connection_info(
             event.client.disconnect(Some("Failed to load player data".to_string()));
             return;
         };
+
+        if let Some(player_data) = event.client.get_player_data() {
+            send_inventory_start_to_client(
+                &event.client,
+                InventoryType::PlayerPersonal,
+                player_data.get_inventory().to_client_inventory(),
+            );
+        }
 
         log::info!(
             target: "network",

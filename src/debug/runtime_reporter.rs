@@ -11,7 +11,7 @@ static LAST_SPIKE_LOG: Mutex<Option<Instant>> = Mutex::new(None);
 
 macro_rules! spike_template {
     () => {
-        "&cTick spike! ({tps:.1} tps) Total: {duration:.1?}&r
+        "&cTick spike! ({tps:.0} tps) Total: {duration:.1?}&r
 {lines}"
     };
 }

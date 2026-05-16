@@ -1,4 +1,5 @@
 use common::{
+    default_blocks_ids::BlockID,
     inventory::{
         inventory::Inventory,
         item::Item,
@@ -304,7 +305,7 @@ fn extract_item(
         }
         let remaining = item.amount - transfer;
         let moved = Item {
-            slug: item.slug.clone(),
+            item_kind: item.item_kind.clone(),
             amount: transfer,
             modifiers: item.modifiers.clone(),
         };
@@ -369,11 +370,10 @@ fn insert_split(
 fn restore_item(inventory: &mut Inventory, slot: usize, changes: Vec<InventorySlotChange>) {
     if let Some(change) = changes.into_iter().next() {
         if let Some(item) = change.item {
-            inventory.set_slot_option(slot, Some(Item {
-                slug: item.slug,
-                amount: item.amount,
-                modifiers: Default::default(),
-            }));
+            let Some(block_id) = BlockID::from_string(&item.slug) else {
+                unimplemented!("item icons are not implemented yet");
+            };
+            inventory.set_slot_option(slot, Some(Item::create(block_id).amount(item.amount)));
         } else {
             inventory.set_slot_option(slot, None);
         }
@@ -401,7 +401,7 @@ fn move_within_inventory(
     }
 
     let moved = Item {
-        slug: source.slug.clone(),
+        item_kind: source.item_kind.clone(),
         amount: transfer,
         modifiers: source.modifiers.clone(),
     };
@@ -449,7 +449,7 @@ fn split_within_inventory(
     }
 
     let moved = Item {
-        slug: source.slug.clone(),
+        item_kind: source.item_kind.clone(),
         amount: transfer,
         modifiers: source.modifiers.clone(),
     };
