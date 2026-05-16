@@ -42,7 +42,7 @@ impl SpawnPlayer {
 impl Command for SpawnPlayer {
     fn apply(self, world: &mut World) {
         let (world_entity, is_chunk_loaded) = {
-            let worlds_manager = world.resource::<SharedWorldsManager>().clone();
+            let worlds_manager = world.resource::<SharedWorldsManager>();
             let worlds_manager = worlds_manager.write();
             let Some(mut world_manager) = worlds_manager.get_world_manager_mut(&self.world_slug) else {
                 panic!("SpawnPlayer: world \"{}\" doesn't exists", self.world_slug);

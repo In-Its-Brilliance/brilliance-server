@@ -306,7 +306,7 @@ fn drain_network_system(
                         .0
                         .emit_event(ClientScriptEvent::create(script_slug, slug, json, client_id));
                 }
-                ClientMessages::InventoryAction(inventory_action) => todo!(),
+                ClientMessages::InventoryAction(_inventory_action) => todo!(),
             }
         }
     }

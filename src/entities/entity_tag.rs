@@ -17,7 +17,7 @@ impl IEntityNetworkComponent for EntityTagComponent {
         EntityNetworkComponent::Tag(Some(self.0.clone()))
     }
 
-    fn get_empty() -> EntityNetworkComponent {
+    fn _get_empty() -> EntityNetworkComponent {
         EntityNetworkComponent::Tag(None)
     }
 }

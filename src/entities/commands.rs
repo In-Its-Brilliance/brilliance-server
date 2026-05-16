@@ -12,13 +12,13 @@ use super::{
     EntityComponent,
 };
 
-pub struct UpdatePlayerComponent {
+pub struct _UpdatePlayerComponent {
     client: Client,
     updated_component: EntityComponent,
 }
 
-impl UpdatePlayerComponent {
-    pub fn create(client: Client, updated_component: EntityComponent) -> Self {
+impl _UpdatePlayerComponent {
+    pub fn _create(client: Client, updated_component: EntityComponent) -> Self {
         Self {
             client,
             updated_component,
@@ -26,9 +26,9 @@ impl UpdatePlayerComponent {
     }
 }
 
-impl Command for UpdatePlayerComponent {
+impl Command for _UpdatePlayerComponent {
     fn apply(self, world: &mut World) {
-        let worlds_manager = world.resource::<SharedWorldsManager>().clone();
+        let worlds_manager = world.resource::<SharedWorldsManager>();
         let worlds_manager = worlds_manager.write();
         let Some(world_entity) = self.client.get_world_entity() else {
             panic!("UpdatePlayerComponent: player not in the world");
@@ -57,7 +57,7 @@ impl Command for UpdatePlayerComponent {
                         entity.remove::<EntityTagComponent>();
                     }
                 }
-                sync_update_entity_component::<EntityTagComponent>(&*world_manager, world_entity.get_entity())
+                _sync_update_entity_component::<EntityTagComponent>(&*world_manager, world_entity.get_entity())
             }
             EntityComponent::Skin(entity_skin) => {
                 is_send_to_player = true;
@@ -69,7 +69,7 @@ impl Command for UpdatePlayerComponent {
                             Some(mut old_skin) => {
                                 // Replace the old skin
                                 *old_skin = new_skin.clone();
-                                sync_update_entity_component::<EntitySkinComponent>(
+                                _sync_update_entity_component::<EntitySkinComponent>(
                                     &*world_manager,
                                     world_entity.get_entity(),
                                 );
@@ -103,7 +103,7 @@ impl Command for UpdatePlayerComponent {
 }
 
 /// Sync entity component for all watchers
-pub(crate) fn sync_update_entity_component<T: Component + IEntityNetworkComponent>(
+pub(crate) fn _sync_update_entity_component<T: Component + IEntityNetworkComponent>(
     world_manager: &WorldManager,
     entity: Entity,
 ) {
@@ -113,7 +113,7 @@ pub(crate) fn sync_update_entity_component<T: Component + IEntityNetworkComponen
 
     let component = match entity_ref.get::<T>() {
         Some(c) => c.to_network(),
-        None => T::get_empty(),
+        None => T::_get_empty(),
     };
 
     let msg = ServerMessages::UpdateEntityComponent {

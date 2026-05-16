@@ -19,7 +19,7 @@ impl IEntityNetworkComponent for EntitySkinComponent {
         EntityNetworkComponent::Skin(self.skin.clone())
     }
 
-    fn get_empty() -> EntityNetworkComponent {
+    fn _get_empty() -> EntityNetworkComponent {
         EntityNetworkComponent::Skin(EntitySkinData::None)
     }
 }

@@ -788,6 +788,7 @@ dependencies = [
  "log",
  "network",
  "parking_lot 0.12.5",
+ "physics",
  "rand 0.8.5",
  "rayon",
  "regex",
@@ -3812,6 +3813,56 @@ checksum = "b4c5cc86750666a3ed20bdaf5ca2a0344f9c67674cae0515bec2da16fbaa47db"
 dependencies = [
  "fixedbitset 0.4.2",
  "indexmap",
+]
+
+[[package]]
+name = "physics"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "arrayvec 0.7.6",
+ "bincode",
+ "common",
+ "downcast-rs 1.2.1",
+ "flume",
+ "ilattice",
+ "log",
+ "miniz_oxide",
+ "ndcopy",
+ "ndshape",
+ "num",
+ "parking_lot 0.12.5",
+ "physx",
+ "physx-sys",
+ "rand 0.8.5",
+ "rhai",
+ "serde",
+ "strum 0.26.3",
+ "strum_macros 0.26.4",
+ "tokio",
+ "typetag",
+]
+
+[[package]]
+name = "physx"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22f1e7a8c6b4dd61d323c8fb40f0840cda81bde253507e0731ac6815dd519ba2"
+dependencies = [
+ "bitflags 1.3.2",
+ "log",
+ "physx-sys",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "physx-sys"
+version = "0.11.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e5201d76c6786a8770f7bf5da2f244aa16708708d68e7fa2a2bab440270758a"
+dependencies = [
+ "bitflags 1.3.2",
+ "cc",
 ]
 
 [[package]]
@@ -7132,7 +7183,3 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
-
-[[patch.unused]]
-name = "physics"
-version = "0.1.0"

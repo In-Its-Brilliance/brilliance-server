@@ -57,7 +57,7 @@ pub fn on_settings_loaded(
         ));
 
         // let skin = EntitySkinComponent::create(NetworkEntitySkin::Generic);
-        // commands.queue(UpdatePlayerComponent::create(
+        // commands.queue(_UpdatePlayerComponent::_create(
         //     event.client.clone(),
         //     EntityComponent::Skin(Some(skin)),
         // ));

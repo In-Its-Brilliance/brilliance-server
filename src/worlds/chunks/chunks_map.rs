@@ -15,7 +15,9 @@ use common::{
     worlds_storage::taits::IWorldStorage,
     WorldStorageManager, VERTICAL_SECTIONS,
 };
-use parking_lot::{RwLock, RwLockReadGuard};
+use parking_lot::RwLock;
+#[cfg(test)]
+use parking_lot::RwLockReadGuard;
 use std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -27,6 +29,7 @@ const MAX_DESPAWN_DURATION: Duration = Duration::from_millis(2);
 
 pub type MapChunksType = AHashMap<ChunkPosition, Arc<RwLock<ChunkColumn>>>;
 
+#[cfg(test)]
 pub type ChunkSectionType<'a> = RwLockReadGuard<'a, ChunkColumn>;
 
 pub type StorageLock = Arc<RwLock<WorldStorageManager>>;
@@ -105,6 +108,7 @@ impl ChunkMap {
         }
     }
 
+    #[cfg(test)]
     pub fn get_chunk_column(&self, chunk_position: &ChunkPosition) -> Option<ChunkSectionType<'_>> {
         match self.chunks.get(chunk_position) {
             Some(c) => Some(c.read()),
