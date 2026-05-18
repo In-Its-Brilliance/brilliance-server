@@ -129,10 +129,6 @@ impl PluginContainer {
                 Ok(w) => w,
                 Err(e) => return Err(format!("WASM plugin {:?}\n&4Error: &c{}", wasm_path.display(), e)),
             };
-            let event = PluginLoadEvent {};
-            if let Err(e) = wasm_plugin_manager.call_event(&event) {
-                return Err(format!("&cWASM plugin &4{:?}&r\n{}", wasm_path.display(), e));
-            }
             inst.plugin = Some(Arc::new(wasm_plugin_manager));
         }
 
@@ -264,6 +260,21 @@ impl PluginContainer {
         }
         self.plugin = None;
         Ok(())
+    }
+
+    pub fn load(&self) -> Result<(), String> {
+        let Some(wasm_instance) = self.plugin.as_ref() else {
+            return Ok(());
+        };
+
+        let event = PluginLoadEvent {};
+        wasm_instance.call_event(&event).map_err(|e| {
+            format!(
+                "&cWASM plugin &4\"{}\"&c load error:&r\n{}",
+                self.get_slug(),
+                e
+            )
+        })
     }
 
     pub fn has_world_generator(&self, method: &String) -> bool {

@@ -108,7 +108,7 @@ impl PluginInstance {
             Ok(_) => Ok(()),
             Err(e) => {
                 let msg = e.root_cause().to_string();
-                Err(format!("&cEvent &4\"{}\"&c error:\n{}", E::EXPORT_NAME, msg))
+                Err(format!("&cEvent &4\"{}\"&c error: &o{}", E::EXPORT_NAME, msg))
             }
         }
     }

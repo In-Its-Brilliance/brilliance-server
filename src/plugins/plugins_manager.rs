@@ -59,7 +59,7 @@ impl PluginsManager {
                 Ok(i) => i,
                 Err(e) => {
                     return Err(format!(
-                        "&cResource &o{}: \n&c{}",
+                        "&cResource &4\"{}\"&c:\n&r{}",
                         resource_path.display().to_string(),
                         e
                     ));
@@ -121,6 +121,9 @@ impl PluginsManager {
         resources_archive.finalize();
 
         self.resources_archive = Some(resources_archive);
+        if let Err(e) = self.load_all_plugins() {
+            return Err(e);
+        }
         log::info!(target: "resources", "All plugins have been successfully loaded: {}", self.plugins.len());
         Ok(())
     }
@@ -274,6 +277,15 @@ impl PluginsManager {
             }
         }
         self.plugins.clear();
+    }
+
+    pub fn load_all_plugins(&self) -> Result<(), String> {
+        for (slug, plugin) in self.plugins.iter() {
+            if let Err(e) = plugin.load() {
+                return Err(format!("&cplugin &4\"{}\"&c load failed:&r\n{}", slug, e));
+            }
+        }
+        Ok(())
     }
 }
 
