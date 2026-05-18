@@ -3,18 +3,18 @@
 Logs method: `extism_pdk::log!`
 
 
-# Events list
+## Events list
 
-## `PluginLoadEvent`
+### `PluginLoadEvent`
 
 **Returns:** `Result<(), Error>`
 
   - `get_slug() -> Result<String, Error>`
   - `register_world_generator(name: &str) -> Result<(), Error>`
 
-## `PluginUnloadEvent`
+### `PluginUnloadEvent`
 
-## `GenerateWorldMacroEvent`
+### `GenerateWorldMacroEvent`
 
 **Returns:** `Result<WorldMacroData, Error>`
 
@@ -22,14 +22,14 @@ Logs method: `extism_pdk::log!`
   - `get_method() -> &String`
   - `get_settings() -> &Option<serde_yaml::Value>`
 
-## `ChunkGenerateEvent`
+### `ChunkGenerateEvent`
 
 **Returns:** `Result<ChunkData, Error>`
 
   - `get_chunk_position() -> &ChunkPosition`
   - `get_world_settings() -> &WorldGeneratorSettings`
 
-## `ClientScriptEvent`
+### `ClientScriptEvent`
 
 **Returns:** `Result<(), Error>`
 
@@ -38,14 +38,14 @@ Logs method: `extism_pdk::log!`
   - `get_json() -> &String`
   - `get_player() -> Player`
 
-## `PlayerSpawnEvent`
+### `PlayerSpawnEvent`
 
   - `get_player() -> Player`
 
 
-# Managers
+## Managers
 
-## `WorldsManager`
+### `WorldsManager`
 
 Global manager for all worlds. It provides access to a specific `WorldManager` by `world_slug`.
 
@@ -59,7 +59,7 @@ let chunks_map = world_manager.get_chunks_map();
 chunks_map.edit_block(payload.position, Some(payload.new_block_info))?;
 ```
 
-## `WorldManager`
+### `WorldManager`
 
 Manager for a single world. It stores the world slug and exposes that world’s `ChunksMap`.
 
@@ -67,7 +67,7 @@ Manager for a single world. It stores the world slug and exposes that world’s 
 - `get_slug() -> &String`
 - `get_chunks_map() -> ChunksMap`
 
-## `ChunksMap`
+### `ChunksMap`
 
 Stores all per-chunk world data, including blocks and inventories, and provides access to modify it.
 
@@ -75,14 +75,14 @@ Stores all per-chunk world data, including blocks and inventories, and provides 
 - `edit_block(position: BlockPosition, new_block_info: Option<BlockDataInfo>) -> Result<(), Error>`
 - `get_or_create_inventory(position: BlockPosition, slots_count: usize) -> Result<Inventory, Error>`
 
-## `ItemsManager`
+### `ItemsManager`
 
 Global manager for custom items.
 
 - `singleton() -> &'static Self`
 - `add_item(item: ItemInfo) -> Result<(), Error>`
 
-## `Plugin`
+### `Plugin`
 
 Plugin-local filesystem access. Paths are relative to the plugin root directory.
 
@@ -99,16 +99,16 @@ let weapons_yaml = plugin.read_file("items/weapons.yml");
 ```
 
 
-# Server data
+## Server data
 
-## `Player`
+### `Player`
 
 - `get_client_id() -> u64`
 - `get_world_slug() -> Option<String>`
 - `get_inventory() -> Inventory`
 - `open_inventory(inventory: Inventory) -> Result<(), Error>`
 
-## `Inventory`
+### `Inventory`
 
 - `get_id() -> u64`
 - `add_item(item: Item) -> Result<(), AddItemError>`
@@ -124,7 +124,7 @@ match inventory.add_item(Item::create("test_armor")) {
 }
 ```
 
-## `Item`
+### `Item`
 
 - `create(item_kind: impl Into<ItemKind>) -> Self`
 - `amount(amount: u16) -> Self`
@@ -135,7 +135,7 @@ let custom = Item::create("test_armor").amount(1);
 let block = Item::create(block_index).amount(1);
 ```
 
-## `ItemKind`
+### `ItemKind`
 
 - `Block(BlockIndexType)`
 - `CustomItem(String)`
@@ -150,11 +150,11 @@ let item = Item::create("test_weapon");
 let item = Item::create(block_index);
 ```
 
-## `ItemInfo`
+### `ItemInfo`
 
 - `create(slug: impl Into<String>, item_type: ItemType, title: impl Into<String>, description: impl Into<String>) -> Self`
 
-## `ItemType`
+### `ItemType`
 
 - `armor(body_part: BodyPart, icon: impl Into<String>, model: impl Into<String>) -> Self`
 - `weapon(weapon_kind: WeaponKind, icon: impl Into<String>, model: impl Into<String>) -> Self`
