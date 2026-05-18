@@ -12,15 +12,16 @@ pub struct WASMPluginManager {
 }
 
 impl WASMPluginManager {
-    pub fn new(wasm_path: &PathBuf, slug: &str, pool_size: usize) -> Result<Self, String> {
+    pub fn new(wasm_path: &PathBuf, plugin_root_path: &PathBuf, slug: &str, pool_size: usize) -> Result<Self, String> {
         let mut config = wasmtime::Config::new();
         config.wasm_backtrace(false);
 
-        let primary = PluginInstance::new(wasm_path, slug, config.clone()).map(Mutex::new)?;
+        let primary =
+            PluginInstance::new(wasm_path, plugin_root_path, slug, config.clone()).map(Mutex::new)?;
 
         let rest: Result<Vec<_>, String> = (1..pool_size)
             .into_par_iter()
-            .map(|_| PluginInstance::new(wasm_path, slug, config.clone()).map(Mutex::new))
+            .map(|_| PluginInstance::new(wasm_path, plugin_root_path, slug, config.clone()).map(Mutex::new))
             .collect();
 
         let mut instances = vec![primary];
@@ -71,11 +72,17 @@ pub struct PluginInstance {
 }
 
 impl PluginInstance {
-    pub fn new(wasm_path: &PathBuf, slug: &str, config: wasmtime::Config) -> Result<Self, String> {
+    pub fn new(
+        wasm_path: &PathBuf,
+        plugin_root_path: &PathBuf,
+        slug: &str,
+        config: wasmtime::Config,
+    ) -> Result<Self, String> {
         let wasm = extism::Wasm::file(wasm_path);
         let manifest = extism::Manifest::new([wasm]);
 
-        let ctx: SharedHostContext = Arc::new(Mutex::new(HostContext::create(slug.to_string())));
+        let ctx: SharedHostContext =
+            Arc::new(Mutex::new(HostContext::create(slug.to_string(), plugin_root_path.clone())));
 
         let builder = extism::PluginBuilder::new(manifest)
             .with_wasi(true)

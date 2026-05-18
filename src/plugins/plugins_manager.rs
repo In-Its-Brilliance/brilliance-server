@@ -5,7 +5,7 @@ use bevy_ecs::{
 use common::{
     blocks::block_type::{BlockContent, BlockType},
     default_resources::DEFAULT_RESOURCES,
-    plugin_api::events::client_script_event::ClientScriptEvent,
+    plugin_api::events::{client_script_event::ClientScriptEvent, player_spawn::PlayerSpawnEvent},
     utils::{calculate_hash, split_resource_path},
 };
 use network::messages::ResurceScheme;
@@ -238,6 +238,22 @@ impl PluginsManager {
 
             if let Err(e) = wasm_plugin.call_event(event) {
                 log::warn!(target: "scripts", "WASM client script event error: {}", e);
+            }
+        }
+    }
+
+    pub fn dispatch_player_spawn_event(&self, event: &PlayerSpawnEvent) {
+        for (_plugin_slug, plugin) in self.plugins.iter() {
+            let Some(wasm_plugin) = plugin.get_wasm_plugin().as_ref() else {
+                continue;
+            };
+
+            if !wasm_plugin.has_event_handler::<PlayerSpawnEvent>() {
+                continue;
+            }
+
+            if let Err(e) = wasm_plugin.call_event(event) {
+                log::warn!(target: "scripts", "WASM player spawn event error: {}", e);
             }
         }
     }

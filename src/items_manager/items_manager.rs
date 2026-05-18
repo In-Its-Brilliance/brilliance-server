@@ -3,8 +3,11 @@ use std::collections::HashMap;
 use bevy_ecs::resource::Resource;
 use common::inventory::inventory::{ClientInventory, Inventory};
 use common::inventory::item::{BodyPart, ClientItem, ClientItemKind, Item, ItemKind, WeaponKind};
+use serde::{Deserialize, Serialize};
+use strum_macros::Display;
 
-use crate::{plugins::plugins_manager::PluginsManager, utils::Shared};
+use crate::plugins::plugins_manager::PluginsManager;
+use crate::utils::Shared;
 
 pub type SharedItemsManager = Shared<ItemsManager>;
 
@@ -19,6 +22,8 @@ impl Default for ItemsManager {
     }
 }
 
+#[derive(Display, Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum ItemType {
     Armor {
         body_part: BodyPart,
@@ -40,13 +45,6 @@ pub enum ItemType {
     },
 }
 
-pub struct ItemInfo {
-    slug: String,
-    item_type: ItemType,
-    title: String,
-    description: String,
-}
-
 impl ItemType {
     pub(crate) fn armor(body_part: BodyPart, icon: impl Into<String>, model: impl Into<String>) -> Self {
         Self::Armor {
@@ -63,6 +61,14 @@ impl ItemType {
             model: model.into(),
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct ItemInfo {
+    slug: String,
+    item_type: ItemType,
+    title: String,
+    description: String,
 }
 
 impl ItemInfo {
@@ -83,20 +89,14 @@ impl ItemInfo {
 
 impl ItemsManager {
     pub(crate) fn new() -> Self {
-        Self {
-            items: HashMap::new(),
-        }
+        Self { items: HashMap::new() }
     }
 
     pub(crate) fn to_client_item(&self, item: &Item) -> ClientItem {
         match item.get_item_kind() {
-            ItemKind::Block(block_id) => ClientItem::create(
-                ClientItemKind::Block(*block_id),
-                item.get_amount(),
-                None,
-                None,
-                None,
-            ),
+            ItemKind::Block(block_id) => {
+                ClientItem::create(ClientItemKind::Block(*block_id), item.get_amount(), None, None, None)
+            }
             ItemKind::CustomItem(slug) => {
                 let Some(info) = self.items.get(slug) else {
                     return ClientItem::create(
@@ -145,12 +145,19 @@ impl ItemsManager {
                     return Err(format!("Item \"{}\" icon media not found: \"{}\" ({})", slug, icon, e));
                 }
                 if let Err(e) = plugins.has_media(model) {
-                    return Err(format!("Item \"{}\" model media not found: \"{}\" ({})", slug, model, e));
+                    return Err(format!(
+                        "Item \"{}\" model media not found: \"{}\" ({})",
+                        slug, model, e
+                    ));
                 }
             }
         }
 
         self.items.insert(slug, item);
         Ok(())
+    }
+
+    pub(crate) fn has_item(&self, slug: &str) -> bool {
+        self.items.contains_key(slug)
     }
 }

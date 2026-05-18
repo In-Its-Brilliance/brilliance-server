@@ -124,7 +124,8 @@ impl PluginContainer {
 
         if let Some(wasm_path) = Self::find_plugin_wasm(&resource_path)? {
             let pool_size = rayon::current_num_threads() + 1;
-            let wasm_plugin_manager = match WASMPluginManager::new(&wasm_path, &manifest.slug, pool_size) {
+            let wasm_plugin_manager =
+                match WASMPluginManager::new(&wasm_path, &resource_path, &manifest.slug, pool_size) {
                 Ok(w) => w,
                 Err(e) => return Err(format!("WASM plugin {:?}\n&4Error: &c{}", wasm_path.display(), e)),
             };

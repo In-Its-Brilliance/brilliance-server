@@ -4,6 +4,10 @@ cargo run
 cargo test -- --nocapture
 ```
 
+## WASM API
+
+- [WASM.md](./WASM.md)
+
 ## ChunkMap -> `ChunksLoadState`
 
 Хранит данные, о том какие чанки видны в данный момент игрокам.
