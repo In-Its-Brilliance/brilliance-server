@@ -5,9 +5,10 @@ use common::utils::events::EventReader;
 use network::messages::InventoryAction as ClientInventoryAction;
 
 use crate::{
-    clients::client::Client,
-    clients::clients_container::SharedClientsContainer,
+    clients::{client::Client, clients_container::SharedClientsContainer},
+    console::console_sender::ConsoleSender,
     inventory::SharedInventoryManager,
+    items_manager::items_manager::SharedItemsManager,
     network::server::NetworkEventListener,
     worlds::worlds_manager::SharedWorldsManager,
 };
@@ -141,6 +142,7 @@ pub fn on_inventory_action(
     events: Res<NetworkEventListener<InventoryActionEvent>>,
     clients: Res<SharedClientsContainer>,
     inventory_manager: Res<SharedInventoryManager>,
+    items_manager: Res<SharedItemsManager>,
     worlds_manager: Res<SharedWorldsManager>,
 ) {
     let _s = crate::span!("events.on_inventory_action");
@@ -150,6 +152,17 @@ pub fn on_inventory_action(
             event.get_inventory_action().clone(),
         );
         let mut inventory_manager = inventory_manager.write();
-        inventory_manager.apply_action(event.get_client(), inventory_action, &clients, &worlds_manager);
+        if let Err(e) = inventory_manager.apply_action(
+            event.get_client(),
+            inventory_action,
+            &clients,
+            &items_manager,
+            &worlds_manager,
+        ) {
+            event
+                .get_client()
+                .send_console_message(format!("inventory action rejected: {}", e));
+            log::warn!(target: "inventory", "inventory action rejected for client {}: {}", event.get_client().get_client_id(), e);
+        }
     }
 }

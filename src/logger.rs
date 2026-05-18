@@ -62,7 +62,7 @@ pub(crate) struct TracingToLogLayer;
 impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for TracingToLogLayer {
     fn on_event(&self, event: &tracing::Event<'_>, _ctx: Context<'_, S>) {
         let meta = event.metadata();
-        let target = meta.target();
+        let target = "plugins";
 
         let mut visitor = MessageVisitor::default();
         event.record(&mut visitor);

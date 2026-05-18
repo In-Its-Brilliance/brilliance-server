@@ -1,6 +1,7 @@
 use bevy::{prelude::TaskPoolPlugin, time::TimePlugin};
 use bevy_app::{App, ScheduleRunnerPlugin};
 use common::utils::print_logo;
+use items_manager::ItemsManagerPlugin;
 use std::time::Duration;
 use tracing_subscriber::layer::SubscriberExt;
 
@@ -11,8 +12,8 @@ use crate::{
     runtime_plugin::RuntimePlugin,
 };
 use debug::DebugPlugin;
-use launch_settings::{get_log_level, LaunchSettings};
 use inventory::InventoryPlugin;
+use launch_settings::{get_log_level, LaunchSettings};
 use plugins::PluginApp;
 use storage::StoragePlugin;
 use worlds::WorldsHandlerPlugin;
@@ -24,8 +25,9 @@ mod clients;
 mod console;
 mod debug;
 mod entities;
-pub mod launch_settings;
 mod inventory;
+mod items_manager;
+pub mod launch_settings;
 mod logger;
 mod network;
 mod plugins;
@@ -77,6 +79,7 @@ fn main() {
         RuntimePlugin::default(),
         StoragePlugin::default(),
         InventoryPlugin::default(),
+        ItemsManagerPlugin::default(),
         PluginApp::default(),
         ConsolePlugin::default(),
         WorldsHandlerPlugin::default(),

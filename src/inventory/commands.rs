@@ -5,6 +5,7 @@ use std::sync::Arc;
 use crate::{
     clients::clients_container::ClientsContainer,
     inventory::inventory_manager::InventoryManager,
+    items_manager::items_manager::ItemsManager,
     network::sync_inventory::{send_inventory_start_to_client, send_inventory_stop_to_client},
     worlds::worlds_manager::WorldsManager,
 };
@@ -15,6 +16,7 @@ pub fn open_inventory(
     clients: &Arc<SmartRwLock<ClientsContainer>>,
     inventory_manager: &Arc<SmartRwLock<InventoryManager>>,
     worlds_manager: &Arc<SmartRwLock<WorldsManager>>,
+    items_manager: &Arc<SmartRwLock<ItemsManager>>,
 ) {
     let clients_guard = clients.read();
     let Some(client) = clients_guard.get(&client_id) else {
@@ -68,7 +70,7 @@ pub fn open_inventory(
         send_inventory_start_to_client(
             client,
             InventoryType::WorldInventory(inventory_id),
-            block_inventory.get_inventory().to_client_inventory(),
+            items_manager.read().to_client_inventory(block_inventory.get_inventory()),
         );
     }
 }

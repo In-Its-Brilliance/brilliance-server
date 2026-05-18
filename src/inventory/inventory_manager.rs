@@ -3,6 +3,7 @@ use bevy::prelude::{Entity, Resource};
 use crate::{
     clients::client::Client,
     clients::clients_container::SharedClientsContainer,
+    items_manager::items_manager::SharedItemsManager,
     network::events::on_inventory_action::InventoryAction,
     worlds::worlds_manager::SharedWorldsManager,
 };
@@ -41,8 +42,9 @@ impl InventoryManager {
         client: &Client,
         action: InventoryAction,
         clients: &SharedClientsContainer,
+        items_manager: &SharedItemsManager,
         worlds_manager: &SharedWorldsManager,
-    ) {
-        InventoryActions::apply_action(client, action, clients, self, worlds_manager);
+    ) -> Result<(), String> {
+        InventoryActions::apply_action(client, action, clients, items_manager, self, worlds_manager)
     }
 }

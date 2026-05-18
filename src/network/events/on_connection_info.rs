@@ -7,6 +7,7 @@ use network::messages::{NetworkMessageType, ServerMessages};
 use crate::clients::client::Client;
 use crate::clients::client::ClientInfo;
 use crate::clients::clients_container::SharedClientsContainer;
+use crate::items_manager::items_manager::SharedItemsManager;
 use crate::network::events::on_media_loaded::PlayerMediaLoadedEvent;
 use crate::network::server::{NetworkEventChannel, NetworkEventListener};
 use crate::network::sync_inventory::send_inventory_start_to_client;
@@ -40,6 +41,7 @@ pub fn on_connection_info(
     plugins_manager: Res<PluginsManager>,
     player_media_loaded_channel: Res<NetworkEventChannel<PlayerMediaLoadedEvent>>,
     clients: Res<SharedClientsContainer>,
+    items_manager: Res<SharedItemsManager>,
     storage: Res<SharedStorageManager>,
 ) {
     let _s = crate::span!("events.on_connection_info");
@@ -75,7 +77,7 @@ pub fn on_connection_info(
             send_inventory_start_to_client(
                 &event.client,
                 InventoryType::PlayerPersonal,
-                player_data.get_inventory().to_client_inventory(),
+                items_manager.read().to_client_inventory(player_data.get_inventory()),
             );
         }
 

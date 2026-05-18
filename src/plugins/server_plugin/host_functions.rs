@@ -29,6 +29,7 @@ static WORLDS_MANAGER_BRIDGE: OnceLock<Arc<SmartRwLock<WorldsManager>>> = OnceLo
 static SERVER_STORAGE_BRIDGE: OnceLock<Arc<SmartRwLock<StorageManager>>> = OnceLock::new();
 static CLIENTS_CONTAINER_BRIDGE: OnceLock<Arc<SmartRwLock<ClientsContainer>>> = OnceLock::new();
 static INVENTORY_MANAGER_BRIDGE: OnceLock<Arc<SmartRwLock<InventoryManager>>> = OnceLock::new();
+static ITEMS_MANAGER_BRIDGE: OnceLock<Arc<SmartRwLock<crate::items_manager::items_manager::ItemsManager>>> = OnceLock::new();
 
 #[derive(Default)]
 pub struct HostContext {
@@ -76,6 +77,10 @@ pub fn set_inventory_manager_bridge(
     let _ = INVENTORY_MANAGER_BRIDGE.set(inventory_manager);
 }
 
+pub fn set_items_manager_bridge(items_manager: Arc<SmartRwLock<crate::items_manager::items_manager::ItemsManager>>) {
+    let _ = ITEMS_MANAGER_BRIDGE.set(items_manager);
+}
+
 fn get_worlds_manager_bridge() -> Option<Arc<SmartRwLock<WorldsManager>>> {
     WORLDS_MANAGER_BRIDGE.get().cloned()
 }
@@ -90,6 +95,10 @@ fn get_clients_container_bridge() -> Option<Arc<SmartRwLock<ClientsContainer>>> 
 
 fn get_inventory_manager_bridge() -> Option<Arc<SmartRwLock<crate::inventory::inventory_manager::InventoryManager>>> {
     INVENTORY_MANAGER_BRIDGE.get().cloned()
+}
+
+fn get_items_manager_bridge() -> Option<Arc<SmartRwLock<crate::items_manager::items_manager::ItemsManager>>> {
+    ITEMS_MANAGER_BRIDGE.get().cloned()
 }
 
 pub fn register_world_generator_raw(
@@ -313,6 +322,8 @@ pub fn open_inventory_raw(
         get_inventory_manager_bridge().ok_or_else(|| Error::msg("InventoryManager bridge is not initialized"))?;
     let worlds_manager =
         get_worlds_manager_bridge().ok_or_else(|| Error::msg("WorldsManager bridge is not initialized"))?;
+    let items_manager =
+        get_items_manager_bridge().ok_or_else(|| Error::msg("ItemsManager bridge is not initialized"))?;
 
     open_inventory(
         request.get_client_id(),
@@ -320,6 +331,7 @@ pub fn open_inventory_raw(
         &clients,
         &inventory_manager,
         &worlds_manager,
+        &items_manager,
     );
 
     plugin.memory_set_val(&mut outputs[0], "")?;

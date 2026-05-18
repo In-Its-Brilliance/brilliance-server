@@ -23,13 +23,8 @@ pub mod on_chunk_loaded;
 pub mod world_manager;
 pub mod worlds_manager;
 
+#[derive(Default)]
 pub struct WorldsHandlerPlugin;
-
-impl Default for WorldsHandlerPlugin {
-    fn default() -> Self {
-        Self {}
-    }
-}
 
 impl Plugin for WorldsHandlerPlugin {
     fn build(&self, app: &mut App) {
