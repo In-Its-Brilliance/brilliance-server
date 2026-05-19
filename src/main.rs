@@ -7,6 +7,7 @@ use tracing_subscriber::layer::SubscriberExt;
 
 use crate::console::ConsolePlugin;
 use crate::{
+    clients::ClientsPlugin,
     logger::{TracingToLogLayer, CONSOLE_LOGGER},
     network::server::NetworkPlugin,
     runtime_plugin::RuntimePlugin,
@@ -82,6 +83,7 @@ fn main() {
         ItemsManagerPlugin::default(),
         PluginApp::default(),
         ConsolePlugin::default(),
+        ClientsPlugin::default(),
         WorldsHandlerPlugin::default(),
         DebugPlugin::default(),
     ));

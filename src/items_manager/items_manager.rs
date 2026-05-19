@@ -160,4 +160,8 @@ impl ItemsManager {
     pub(crate) fn has_item(&self, slug: &str) -> bool {
         self.items.contains_key(slug)
     }
+
+    pub(crate) fn iter_slugs(&self) -> impl Iterator<Item = &String> {
+        self.items.keys()
+    }
 }

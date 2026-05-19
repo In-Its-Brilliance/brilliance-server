@@ -1,4 +1,4 @@
-use common::commands::complitions::{CompleteRequest, CompleteResponse, Completion};
+use common::commands::complitions::{CompleteRequest, CompleteResponse};
 use flume::{Drain, Receiver, Sender};
 use lazy_static::lazy_static;
 use rustyline::{

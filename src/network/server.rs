@@ -1,6 +1,5 @@
 use bevy::time::common_conditions::on_timer;
 use bevy_app::{App, Startup, Update};
-use bevy_ecs::change_detection::Mut;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::{system::Res, world::World};
@@ -17,6 +16,7 @@ use network::NetworkServer;
 
 use super::events::{
     on_client_script_event::on_client_script_event,
+    on_console_complete::{on_console_complete, ConsoleCompleteRequestEvent},
     on_connection::{on_connection, PlayerConnectionEvent},
     on_connection_info::{on_connection_info, PlayerConnectionInfoEvent},
     on_disconnect::{on_disconnect, PlayerDisconnectEvent},
@@ -36,7 +36,6 @@ use crate::{console::commands_executer::CommandsHandler, LaunchSettings};
 use crate::{
     entities::entity::{IntoServerPosition, IntoServerRotation},
     network::console_commands::{command_kick, command_parser_kick},
-    network::console_commands::{command_give, command_parser_give},
 };
 use std::sync::Arc;
 
@@ -120,7 +119,6 @@ impl NetworkPlugin {
 
         let mut commands_handler = app.world_mut().get_resource_mut::<CommandsHandler>().unwrap();
         commands_handler.add_command_executer(CommandExecuter::new(command_parser_kick(), command_kick));
-        commands_handler.add_command_executer(CommandExecuter::new(command_parser_give(), command_give));
 
         app.insert_resource(NetworkContainer::new(ip_port));
         app.insert_resource(SharedClientsContainer::new(Arc::new(timed_lock!(
@@ -140,6 +138,7 @@ impl NetworkPlugin {
         register_network_event::<PlayerSettingsLoadedEvent>(app);
         register_network_event::<ClientScriptEvent>(app);
         register_network_event::<InventoryActionEvent>(app);
+        register_network_event::<ConsoleCompleteRequestEvent>(app);
 
         // Core drain system (replaces receive_message_system + handle_events_system)
         app.add_systems(Update, drain_network_system);
@@ -153,6 +152,7 @@ impl NetworkPlugin {
         app.add_systems(Update, flush_compressed_chunks.after(drain_network_system));
 
         app.add_systems(Update, console_client_command_event);
+        app.add_systems(Update, on_console_complete.after(drain_network_system));
 
         // Handler systems — all ordered after drain_network_system
         app.add_systems(Update, on_resources_has_cache.after(drain_network_system));
@@ -168,6 +168,7 @@ impl NetworkPlugin {
         // PlayerSpawnEvent stays as Bevy Message (internal ECS event, not network)
         app.add_message::<PlayerSpawnEvent>();
         app.add_systems(Update, on_player_spawn);
+
     }
 
     pub(crate) fn send_console_output(client: &Client, message: String) {
@@ -186,6 +187,7 @@ fn span_name_for_client_message(msg: &ClientMessages) -> &'static str {
     match msg {
         ClientMessages::ConnectionInfo { .. } => "server.drain_network_system::ConnectionInfo",
         ClientMessages::ConsoleInput { .. } => "server.drain_network_system::ConsoleInput",
+        ClientMessages::ConsoleCompleteRequest(..) => "server.drain_network_system::ConsoleCompleteRequest",
         ClientMessages::PlayerMove { .. } => "server.drain_network_system::PlayerMove",
         ClientMessages::ChunkRecieved { .. } => "server.drain_network_system::ChunkRecieved",
         ClientMessages::ClientScriptEvent { .. } => "server.drain_network_system::ClientScriptEvent",
@@ -208,6 +210,7 @@ fn drain_network_system(
     settings_loaded_channel: Res<NetworkEventChannel<PlayerSettingsLoadedEvent>>,
     client_script_channel: Res<NetworkEventChannel<ClientScriptEvent>>,
     inventory_action_channel: Res<NetworkEventChannel<InventoryActionEvent>>,
+    complete_request_channel: Res<NetworkEventChannel<ConsoleCompleteRequestEvent>>,
 ) {
     #[cfg(feature = "trace")]
     let _span = bevy_utils::tracing::info_span!("server.drain_network_system").entered();
@@ -267,6 +270,11 @@ fn drain_network_system(
                 ClientMessages::ConsoleInput { command } => {
                     CONSOLE_INPUT.0.send((*client_id, command)).unwrap();
                 }
+                ClientMessages::ConsoleCompleteRequest(request) => {
+                    complete_request_channel
+                        .0
+                        .emit_event(ConsoleCompleteRequestEvent::new(client.clone(), request));
+                }
                 ClientMessages::ChunkRecieved { chunk_positions } => {
                     client.mark_chunks_as_recieved(chunk_positions);
                 }
@@ -324,11 +332,19 @@ fn drain_network_system(
 #[allow(unused_mut)]
 fn console_client_command_event(world: &mut World) {
     let _s = crate::span!("server.console_client_command_event");
-    world.resource_scope(|world, clients: Mut<SharedClientsContainer>| {
-        let clients = clients.read();
-        for (client_id, command) in CONSOLE_INPUT.1.try_iter() {
-            let client = clients.get(&client_id).unwrap();
-            CommandsHandler::execute_command(world, Box::new(client.clone()), &command);
-        }
-    });
+    let commands: Vec<(u64, String)> = CONSOLE_INPUT.1.try_iter().collect();
+    for (client_id, command) in commands {
+        let client = {
+            let Some(clients) = world.get_resource::<SharedClientsContainer>() else {
+                log::error!(target: "network", "SharedClientsContainer is not loaded");
+                return;
+            };
+            let clients = clients.read();
+            let Some(client) = clients.get(&client_id) else {
+                continue;
+            };
+            client.clone()
+        };
+        CommandsHandler::execute_command(world, Box::new(client), &command);
+    }
 }

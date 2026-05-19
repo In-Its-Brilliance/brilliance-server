@@ -1,7 +1,8 @@
 use super::console_sender::ConsoleSenderType;
+use std::any::Any;
 use bevy_ecs::{resource::Resource, world::World};
 use common::commands::{
-    command::{Command, CommandMatch},
+    command::{ArgCompleterContext, Command, CommandMatch},
     complitions::{CompleteRequest, CompleteResponse},
 };
 use log::error;
@@ -9,6 +10,16 @@ use log::error;
 // https://github.com/clap-rs/clap/blob/master/examples/pacman.rs
 
 type CommandFN = fn(world: &mut World, sender: Box<dyn ConsoleSenderType>, CommandMatch) -> Result<(), String>;
+
+struct ServerCompleterContext<'a> {
+    world: &'a World,
+}
+
+impl<'a> ArgCompleterContext for ServerCompleterContext<'a> {
+    fn world(&self) -> &dyn Any {
+        self.world
+    }
+}
 
 #[derive(Clone)]
 pub struct CommandExecuter {
@@ -92,7 +103,8 @@ impl CommandsHandler {
         let handlers = world.resource::<CommandsHandler>();
 
         let commands: Vec<Command> = handlers.commands.iter().map(|m| m.command_parser.clone()).collect();
-        let complete_response = CompleteResponse::complete(request, commands.iter());
+        let context = ServerCompleterContext { world: &*world };
+        let complete_response = CompleteResponse::complete(request, commands.iter(), Some(&context));
         complete_response
 
         //if let Some(h) = complete_handler {
