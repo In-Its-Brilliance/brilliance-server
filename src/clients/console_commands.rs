@@ -60,6 +60,11 @@ pub(crate) fn command_parser_players() -> Command {
         .subcommand(
             Command::new("clear".to_owned()).arg(Arg::new("player".to_owned()).required(true).completer(complete_players)),
         )
+        .subcommand(
+            Command::new("kick".to_owned())
+                .arg(Arg::new("player".to_owned()).required(true).completer(complete_players))
+                .arg(Arg::new("message".to_owned()).required(false)),
+        )
 }
 
 pub(crate) fn command_parser_clear() -> Command {
@@ -183,6 +188,33 @@ pub(crate) fn command_players(
             );
 
             sender.send_console_message(format!("Admin &a{}&r cleared inventory of &a{}&r", sender.get_name(), login));
+            Ok(())
+        }
+        "kick" => {
+            let login = players_subcommand.get_arg::<String, _>("player")?.clone();
+
+            let Some(clients) = world.get_resource::<SharedClientsContainer>() else {
+                sender.send_console_message("&cClients container is not loaded".to_string());
+                return Ok(());
+            };
+            let clients_guard = clients.read();
+
+            let Some(client) = clients_guard.get_by_login(&login) else {
+                sender.send_console_message(format!("&cPlayer with login \"{}\" not found", login));
+                return Ok(());
+            };
+
+            let message = match players_subcommand.get_arg::<String, _>("message") {
+                Ok(m) => m,
+                Err(_) => "-".to_string(),
+            };
+            client.disconnect(Some(message.clone()));
+            sender.send_console_message(format!(
+                "Admin &a{}&r kicked player &a{}&r with reason: &e{}",
+                sender.get_name(),
+                login,
+                message
+            ));
             Ok(())
         }
         _ => {

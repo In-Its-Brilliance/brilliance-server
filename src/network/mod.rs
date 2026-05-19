@@ -1,5 +1,4 @@
 pub mod chunks_sender;
-pub mod console_commands;
 pub mod events;
 pub mod sync_inventory;
 pub mod server;

@@ -31,12 +31,9 @@ use crate::clients::clients_container::{ClientsContainer, SharedClientsContainer
 use crate::network::chunks_sender::{flush_compressed_chunks, send_chunks, ChunkCompressQueue};
 use crate::network::sync_players::PlayerSpawnEvent;
 use crate::plugins::server_plugin::host_functions::set_clients_container_bridge;
-use crate::{console::commands_executer::CommandExecuter, entities::events::on_player_spawn::on_player_spawn};
+use crate::entities::events::on_player_spawn::on_player_spawn;
 use crate::{console::commands_executer::CommandsHandler, LaunchSettings};
-use crate::{
-    entities::entity::{IntoServerPosition, IntoServerRotation},
-    network::console_commands::{command_kick, command_parser_kick},
-};
+use crate::entities::entity::{IntoServerPosition, IntoServerRotation};
 use std::sync::Arc;
 
 const SEND_CHUNKS_DELAY: std::time::Duration = std::time::Duration::from_millis(10);
@@ -116,9 +113,6 @@ impl NetworkPlugin {
         let ip_port = format!("{}:{}", server_settings.get_args().ip, server_settings.get_args().port);
 
         log::info!(target: "network", "Starting server on &6{}", ip_port);
-
-        let mut commands_handler = app.world_mut().get_resource_mut::<CommandsHandler>().unwrap();
-        commands_handler.add_command_executer(CommandExecuter::new(command_parser_kick(), command_kick));
 
         app.insert_resource(NetworkContainer::new(ip_port));
         app.insert_resource(SharedClientsContainer::new(Arc::new(timed_lock!(
