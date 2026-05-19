@@ -36,6 +36,7 @@ use crate::{console::commands_executer::CommandsHandler, LaunchSettings};
 use crate::{
     entities::entity::{IntoServerPosition, IntoServerRotation},
     network::console_commands::{command_kick, command_parser_kick},
+    network::console_commands::{command_give, command_parser_give},
 };
 use std::sync::Arc;
 
@@ -119,6 +120,7 @@ impl NetworkPlugin {
 
         let mut commands_handler = app.world_mut().get_resource_mut::<CommandsHandler>().unwrap();
         commands_handler.add_command_executer(CommandExecuter::new(command_parser_kick(), command_kick));
+        commands_handler.add_command_executer(CommandExecuter::new(command_parser_give(), command_give));
 
         app.insert_resource(NetworkContainer::new(ip_port));
         app.insert_resource(SharedClientsContainer::new(Arc::new(timed_lock!(
@@ -265,6 +267,7 @@ fn drain_network_system(
                 ClientMessages::ConsoleInput { command } => {
                     CONSOLE_INPUT.0.send((*client_id, command)).unwrap();
                 }
+                ClientMessages::ConsoleCompleteRequest(_) => {}
                 ClientMessages::ChunkRecieved { chunk_positions } => {
                     client.mark_chunks_as_recieved(chunk_positions);
                 }
