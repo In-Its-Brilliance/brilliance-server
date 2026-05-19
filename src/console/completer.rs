@@ -7,7 +7,7 @@ use rustyline::{
     line_buffer::LineBuffer,
     Changeset, Context, Result,
 };
-use std::{thread, time::Duration};
+use std::time::Duration;
 
 lazy_static! {
     static ref CONSOLE_COMPLETE_REQUESTS: (Sender<CompleteRequest>, Receiver<CompleteRequest>) = flume::bounded(1);
@@ -39,19 +39,23 @@ impl Completer for CustomCompleter {
         let request = CompleteRequest::create(line.to_string(), pos);
         CustomCompleter::send_complete_request(request);
 
-        let mut reuslt: Vec<Completion>;
-        'waiting: loop {
-            for response in CONSOLE_COMPLETE_RESPONSES.1.drain() {
-                reuslt = response.get_completions().clone();
-                break 'waiting;
+        let response = match CONSOLE_COMPLETE_RESPONSES.1.recv_timeout(Duration::from_secs(5)) {
+            Ok(response) => response,
+            Err(err) => {
+                log::warn!("completion request timed out: {err}");
+                return Ok((pos, Vec::new()));
             }
-            thread::sleep(Duration::from_millis(1));
-        }
-        let reuslt = reuslt
-            .drain(..)
+        };
+
+        let start = pos.saturating_sub(*response.get_offset());
+        let candidates = response
+            .get_completions()
+            .iter()
+            .cloned()
             .map(|c| CustomCandidate::new(c.get_completion().clone()))
             .collect::<Vec<_>>();
-        Ok((pos, reuslt))
+
+        Ok((start, candidates))
     }
 
     /// Updates the edited `line` with the `elected` candidate.

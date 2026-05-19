@@ -267,7 +267,6 @@ fn drain_network_system(
                 ClientMessages::ConsoleInput { command } => {
                     CONSOLE_INPUT.0.send((*client_id, command)).unwrap();
                 }
-                ClientMessages::ConsoleCompleteRequest(_) => {}
                 ClientMessages::ChunkRecieved { chunk_positions } => {
                     client.mark_chunks_as_recieved(chunk_positions);
                 }
