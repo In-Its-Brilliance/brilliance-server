@@ -124,7 +124,7 @@ impl PluginsManager {
         if let Err(e) = self.load_all_plugins() {
             return Err(e);
         }
-        log::info!(target: "resources", "All plugins have been successfully loaded: {}", self.plugins.len());
+        log::info!(target: "resources", "&2All plugins have been successfully loaded: &a{}", self.plugins.len());
         Ok(())
     }
 

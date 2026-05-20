@@ -6,7 +6,7 @@ use bevy_ecs::schedule::IntoScheduleConfigs;
 #[cfg(debug_assertions)]
 use common::utils::debug::runtime_storage::RuntimeStorage;
 
-use console_commands::{command_parser_tps, command_tps};
+use console_commands::{command_color, command_parser_color, command_parser_tps, command_tps};
 #[cfg(debug_assertions)]
 use lazy_static::lazy_static;
 
@@ -82,5 +82,6 @@ impl Plugin for DebugPlugin {
 
         let mut commands_handler = app.world_mut().get_resource_mut::<CommandsHandler>().unwrap();
         commands_handler.add_command_executer(CommandExecuter::new(command_parser_tps(), command_tps));
+        commands_handler.add_command_executer(CommandExecuter::new(command_parser_color(), command_color));
     }
 }
