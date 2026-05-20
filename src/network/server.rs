@@ -16,9 +16,9 @@ use network::NetworkServer;
 
 use super::events::{
     on_client_script_event::on_client_script_event,
-    on_console_complete::{on_console_complete, ConsoleCompleteRequestEvent},
     on_connection::{on_connection, PlayerConnectionEvent},
     on_connection_info::{on_connection_info, PlayerConnectionInfoEvent},
+    on_console_complete::{on_console_complete, ConsoleCompleteRequestEvent},
     on_disconnect::{on_disconnect, PlayerDisconnectEvent},
     on_inventory_action::{on_inventory_action, InventoryActionEvent},
     on_media_loaded::{on_media_loaded, PlayerMediaLoadedEvent},
@@ -28,12 +28,12 @@ use super::events::{
 };
 use crate::clients::client::Client;
 use crate::clients::clients_container::{ClientsContainer, SharedClientsContainer};
+use crate::entities::entity::{IntoServerPosition, IntoServerRotation};
+use crate::entities::events::on_player_spawn::on_player_spawn;
 use crate::network::chunks_sender::{flush_compressed_chunks, send_chunks, ChunkCompressQueue};
 use crate::network::sync_players::PlayerSpawnEvent;
 use crate::plugins::server_plugin::host_functions::set_clients_container_bridge;
-use crate::entities::events::on_player_spawn::on_player_spawn;
 use crate::{console::commands_executer::CommandsHandler, LaunchSettings};
-use crate::entities::entity::{IntoServerPosition, IntoServerRotation};
 use std::sync::Arc;
 
 const SEND_CHUNKS_DELAY: std::time::Duration = std::time::Duration::from_millis(10);
@@ -162,7 +162,6 @@ impl NetworkPlugin {
         // PlayerSpawnEvent stays as Bevy Message (internal ECS event, not network)
         app.add_message::<PlayerSpawnEvent>();
         app.add_systems(Update, on_player_spawn);
-
     }
 
     pub(crate) fn send_console_output(client: &Client, message: String) {
@@ -233,7 +232,10 @@ fn drain_network_system(
                 }
                 ConnectionMessages::Disconnect { client_id, reason } => {
                     let clients_guard = clients.read();
-                    let client = clients_guard.get(&client_id).unwrap();
+                    let Some(client) = clients_guard.get(&client_id) else {
+                        log::warn!(target: "network", "Disconnect for missing client_id: {}", client_id);
+                        continue;
+                    };
                     disconnect_channel
                         .0
                         .emit_event(PlayerDisconnectEvent::new(client.clone(), reason));

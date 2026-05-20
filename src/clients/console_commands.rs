@@ -52,7 +52,7 @@ pub(crate) fn command_parser_give() -> Command {
     Command::new("give".to_owned())
         .arg(Arg::new("player".to_owned()).required(true).completer(complete_players))
         .arg(Arg::new("item".to_owned()).required(true).completer(complete_items))
-        .arg(Arg::new("amount".to_owned()).required(true))
+        .arg(Arg::new("amount".to_owned()).required(false))
 }
 
 pub(crate) fn command_parser_kick() -> Command {
@@ -83,7 +83,10 @@ pub(crate) fn command_give(
 ) -> Result<(), String> {
     let login = args.get_arg::<String, _>("player")?.clone();
     let item_slug = args.get_arg::<String, _>("item")?.clone();
-    let amount = args.get_arg::<u16, _>("amount")?.clone();
+    let amount = match args.get_arg::<u16, _>("amount") {
+        Ok(value) => value,
+        Err(_) => 1,
+    };
 
     if amount == 0 {
         sender.send_console_message("&cAmount must be greater than zero".to_string());
