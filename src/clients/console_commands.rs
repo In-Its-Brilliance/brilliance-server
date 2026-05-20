@@ -48,23 +48,17 @@ pub(crate) fn complete_items(context: &dyn ArgCompleterContext, input: &str) -> 
     slugs
 }
 
-pub(crate) fn command_parser_players() -> Command {
-    Command::new("players".to_owned())
-        .subcommand_required(true)
-        .subcommand(
-            Command::new("give".to_owned())
-                .arg(Arg::new("player".to_owned()).required(true).completer(complete_players))
-                .arg(Arg::new("item".to_owned()).required(true).completer(complete_items))
-                .arg(Arg::new("amount".to_owned()).required(true)),
-        )
-        .subcommand(
-            Command::new("clear".to_owned()).arg(Arg::new("player".to_owned()).required(true).completer(complete_players)),
-        )
-        .subcommand(
-            Command::new("kick".to_owned())
-                .arg(Arg::new("player".to_owned()).required(true).completer(complete_players))
-                .arg(Arg::new("message".to_owned()).required(false)),
-        )
+pub(crate) fn command_parser_give() -> Command {
+    Command::new("give".to_owned())
+        .arg(Arg::new("player".to_owned()).required(true).completer(complete_players))
+        .arg(Arg::new("item".to_owned()).required(true).completer(complete_items))
+        .arg(Arg::new("amount".to_owned()).required(true))
+}
+
+pub(crate) fn command_parser_kick() -> Command {
+    Command::new("kick".to_owned())
+        .arg(Arg::new("player".to_owned()).required(true).completer(complete_players))
+        .arg(Arg::new("message".to_owned()).required(false))
 }
 
 pub(crate) fn command_parser_clear() -> Command {
@@ -82,146 +76,107 @@ fn clear_player_inventory(client: &crate::clients::client::Client) -> usize {
         .unwrap_or(0)
 }
 
-pub(crate) fn command_players(
+pub(crate) fn command_give(
     world: &mut World,
     sender: Box<dyn ConsoleSenderType>,
     args: CommandMatch,
 ) -> Result<(), String> {
-    let Some(players_subcommand) = args.subcommand() else {
-        sender.send_console_message("&cPlayers subcommand is required".to_string());
+    let login = args.get_arg::<String, _>("player")?.clone();
+    let item_slug = args.get_arg::<String, _>("item")?.clone();
+    let amount = args.get_arg::<u16, _>("amount")?.clone();
+
+    if amount == 0 {
+        sender.send_console_message("&cAmount must be greater than zero".to_string());
+        return Ok(());
+    }
+
+    let Some(clients) = world.get_resource::<SharedClientsContainer>() else {
+        sender.send_console_message("&cClients container is not loaded".to_string());
+        return Ok(());
+    };
+    let Some(items_manager) = world.get_resource::<SharedItemsManager>() else {
+        sender.send_console_message("&cItems manager is not loaded".to_string());
         return Ok(());
     };
 
-    match players_subcommand.get_name().as_str() {
-        "give" => {
-            let login = players_subcommand.get_arg::<String, _>("player")?.clone();
-            let item_slug = players_subcommand.get_arg::<String, _>("item")?.clone();
-            let amount = players_subcommand.get_arg::<u16, _>("amount")?.clone();
+    if !items_manager.read().has_item(&item_slug) {
+        sender.send_console_message(format!("&cItem \"{}\" not found", item_slug));
+        return Ok(());
+    }
 
-            if amount == 0 {
-                sender.send_console_message("&cAmount must be greater than zero".to_string());
-                return Ok(());
-            }
+    let clients_guard = clients.read();
+    let Some(client) = clients_guard.get_by_login(&login) else {
+        sender.send_console_message(format!("&cPlayer with login \"{}\" not found", login));
+        return Ok(());
+    };
 
-            let Some(clients) = world.get_resource::<SharedClientsContainer>() else {
-                sender.send_console_message("&cClients container is not loaded".to_string());
-                return Ok(());
-            };
-            let Some(items_manager) = world.get_resource::<SharedItemsManager>() else {
-                sender.send_console_message("&cItems manager is not loaded".to_string());
-                return Ok(());
-            };
+    let item = Item::create(item_slug.clone()).amount(amount);
 
-            if !items_manager.read().has_item(&item_slug) {
-                sender.send_console_message(format!("&cItem \"{}\" not found", item_slug));
-                return Ok(());
-            }
-
-            let clients_guard = clients.read();
-            let Some(client) = clients_guard.get_by_login(&login) else {
-                sender.send_console_message(format!("&cPlayer with login \"{}\" not found", login));
-                return Ok(());
-            };
-
-            let item = Item::create(item_slug.clone()).amount(amount);
-
-            let result = client.with_player_data_mut(|player_data| {
-                player_data.get_inventory_mut().add_item(item, |slot, updated_item| {
-                    send_inventory_changes_to_client(
-                        client,
-                        &crate::network::events::on_inventory_action::InventoryTarget::Client(client.get_client_id()),
-                        vec![network::messages::InventorySlotChange {
-                            slot,
-                            item: updated_item.map(|item| items_manager.read().to_client_item(item)),
-                        }],
-                    );
-                })
-            });
-
-            match result {
-                Some(Ok(())) => {
-                    sender.send_console_message(format!(
-                        "Admin &a{}&r gave &e{}x {}&r to &a{}&r",
-                        sender.get_name(),
-                        amount,
-                        item_slug,
-                        login
-                    ));
-                    Ok(())
-                }
-                Some(Err(_)) => {
-                    sender.send_console_message("&cPlayer inventory is full".to_string());
-                    Ok(())
-                }
-                None => {
-                    sender.send_console_message(format!("&cPlayer \"{}\" has no player data loaded", login));
-                    Ok(())
-                }
-            }
-        }
-        "clear" => {
-            let login = players_subcommand.get_arg::<String, _>("player")?.clone();
-
-            let Some(clients) = world.get_resource::<SharedClientsContainer>() else {
-                sender.send_console_message("&cClients container is not loaded".to_string());
-                return Ok(());
-            };
-
-            let clients_guard = clients.read();
-            let Some(client) = clients_guard.get_by_login(&login) else {
-                sender.send_console_message(format!("&cPlayer with login \"{}\" not found", login));
-                return Ok(());
-            };
-            let slots_len = clear_player_inventory(client);
-            if slots_len == 0 {
-                sender.send_console_message(format!("&cPlayer \"{}\" has no player data loaded", login));
-                return Ok(());
-            }
-
-            let changes: Vec<network::messages::InventorySlotChange> = (0..slots_len)
-                .map(|slot| network::messages::InventorySlotChange { slot, item: None })
-                .collect();
+    let result = client.with_player_data_mut(|player_data| {
+        player_data.get_inventory_mut().add_item(item, |slot, updated_item| {
             send_inventory_changes_to_client(
                 client,
                 &crate::network::events::on_inventory_action::InventoryTarget::Client(client.get_client_id()),
-                changes,
+                vec![network::messages::InventorySlotChange {
+                    slot,
+                    item: updated_item.map(|item| items_manager.read().to_client_item(item)),
+                }],
             );
+        })
+    });
 
-            sender.send_console_message(format!("Admin &a{}&r cleared inventory of &a{}&r", sender.get_name(), login));
-            Ok(())
-        }
-        "kick" => {
-            let login = players_subcommand.get_arg::<String, _>("player")?.clone();
-
-            let Some(clients) = world.get_resource::<SharedClientsContainer>() else {
-                sender.send_console_message("&cClients container is not loaded".to_string());
-                return Ok(());
-            };
-            let clients_guard = clients.read();
-
-            let Some(client) = clients_guard.get_by_login(&login) else {
-                sender.send_console_message(format!("&cPlayer with login \"{}\" not found", login));
-                return Ok(());
-            };
-
-            let message = match players_subcommand.get_arg::<String, _>("message") {
-                Ok(m) => m,
-                Err(_) => "-".to_string(),
-            };
-            client.disconnect(Some(message.clone()));
+    match result {
+        Some(Ok(())) => {
             sender.send_console_message(format!(
-                "Admin &a{}&r kicked player &a{}&r with reason: &e{}",
+                "Admin &a{}&r gave &e{}x {}&r to &a{}&r",
                 sender.get_name(),
-                login,
-                message
+                amount,
+                item_slug,
+                login
             ));
             Ok(())
         }
-        _ => {
-            sender.send_console_message("&cUnknown players subcommand".to_string());
+        Some(Err(_)) => {
+            sender.send_console_message("&cPlayer inventory is full".to_string());
+            Ok(())
+        }
+        None => {
+            sender.send_console_message(format!("&cPlayer \"{}\" has no player data loaded", login));
             Ok(())
         }
     }
+}
+
+pub(crate) fn command_kick(
+    world: &mut World,
+    sender: Box<dyn ConsoleSenderType>,
+    args: CommandMatch,
+) -> Result<(), String> {
+    let login = args.get_arg::<String, _>("player")?.clone();
+
+    let Some(clients) = world.get_resource::<SharedClientsContainer>() else {
+        sender.send_console_message("&cClients container is not loaded".to_string());
+        return Ok(());
+    };
+    let clients_guard = clients.read();
+
+    let Some(client) = clients_guard.get_by_login(&login) else {
+        sender.send_console_message(format!("&cPlayer with login \"{}\" not found", login));
+        return Ok(());
+    };
+
+    let message = match args.get_arg::<String, _>("message") {
+        Ok(m) => m,
+        Err(_) => "-".to_string(),
+    };
+    client.disconnect(Some(message.clone()));
+    sender.send_console_message(format!(
+        "Admin &a{}&r kicked player &a{}&r with reason: &e{}",
+        sender.get_name(),
+        login,
+        message
+    ));
+    Ok(())
 }
 
 pub(crate) fn command_clear(

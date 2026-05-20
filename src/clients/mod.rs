@@ -6,7 +6,14 @@ pub mod client;
 pub mod console_commands;
 pub mod clients_container;
 
-use console_commands::{command_clear, command_parser_clear, command_parser_players, command_players};
+use console_commands::{
+    command_clear,
+    command_give,
+    command_kick,
+    command_parser_clear,
+    command_parser_give,
+    command_parser_kick,
+};
 
 pub struct ClientsPlugin;
 
@@ -19,7 +26,8 @@ impl Default for ClientsPlugin {
 impl Plugin for ClientsPlugin {
     fn build(&self, app: &mut App) {
         let mut commands_handler = app.world_mut().get_resource_mut::<CommandsHandler>().unwrap();
-        commands_handler.add_command_executer(CommandExecuter::new(command_parser_players(), command_players));
+        commands_handler.add_command_executer(CommandExecuter::new(command_parser_give(), command_give));
+        commands_handler.add_command_executer(CommandExecuter::new(command_parser_kick(), command_kick));
         commands_handler.add_command_executer(CommandExecuter::new(command_parser_clear(), command_clear));
     }
 }
