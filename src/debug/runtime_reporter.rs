@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use crate::runtime_plugin::RuntimePlugin;
 
 const SPIKE_LOG_COOLDOWN: Duration = Duration::from_secs(10);
+const SPIKE_TPS_THRESHOLD: f32 = 60.0;
 
 static LAST_SPIKE_LOG: Mutex<Option<Instant>> = Mutex::new(None);
 
@@ -22,6 +23,10 @@ impl RuntimeReporter {
     /// Проверяет, превысил ли текущий тик порог SPIKE_THRESHOLD (сумма "last" root-спанов).
     pub fn check_spike(spans: &SpansType, tps: &f32) {
         if RuntimePlugin::is_stopped() {
+            return;
+        }
+
+        if *tps >= SPIKE_TPS_THRESHOLD {
             return;
         }
 
