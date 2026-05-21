@@ -48,10 +48,11 @@ pub fn on_settings_loaded(
         let tag = EntityTagComponent::create(EntityTagData::create(client_info.get_login().clone(), None, None, None));
         components.push(EntityComponent::Tag(Some(tag)));
 
+        let spawn_position = Position::new(0.0, 100.0, 0.0);
         commands.queue(SpawnPlayer::create(
             default_world,
             event.client.clone(),
-            Position::new(0.0, 100.0, 0.0),
+            spawn_position,
             Rotation::new(0.0, 0.0),
             components,
         ));

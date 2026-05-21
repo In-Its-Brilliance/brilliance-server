@@ -10,6 +10,8 @@ use console_commands::{
     command_clear,
     command_give,
     command_kick,
+    command_parser_teleport,
+    command_teleport,
     command_parser_clear,
     command_parser_give,
     command_parser_kick,
@@ -29,5 +31,6 @@ impl Plugin for ClientsPlugin {
         commands_handler.add_command_executer(CommandExecuter::new(command_parser_give(), command_give));
         commands_handler.add_command_executer(CommandExecuter::new(command_parser_kick(), command_kick));
         commands_handler.add_command_executer(CommandExecuter::new(command_parser_clear(), command_clear));
+        commands_handler.add_command_executer(CommandExecuter::new(command_parser_teleport(), command_teleport));
     }
 }

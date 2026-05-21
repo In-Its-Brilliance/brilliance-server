@@ -1,12 +1,17 @@
 use bevy_ecs::world::World;
 use common::commands::command::{Arg, ArgCompleterContext, Command, CommandMatch};
 use common::inventory::item::Item;
+use bevy::time::Time;
+use crate::entities::entity::{Position, Rotation};
+use crate::network::events::on_player_move::move_player;
+use network::entities::AnimationState;
 
 use crate::{
     clients::clients_container::SharedClientsContainer,
     console::console_sender::ConsoleSenderType,
     items_manager::items_manager::SharedItemsManager,
     network::sync_inventory::send_inventory_changes_to_client,
+    worlds::worlds_manager::SharedWorldsManager,
 };
 
 fn world_from_context(context: &dyn ArgCompleterContext) -> &World {
@@ -63,6 +68,14 @@ pub(crate) fn command_parser_kick() -> Command {
 
 pub(crate) fn command_parser_clear() -> Command {
     Command::new("clear".to_owned()).arg(Arg::new("player".to_owned()).required(true).completer(complete_players))
+}
+
+pub(crate) fn command_parser_teleport() -> Command {
+    Command::new("tp".to_owned())
+        .arg(Arg::new("x".to_owned()).required(true))
+        .arg(Arg::new("y".to_owned()).required(true))
+        .arg(Arg::new("z".to_owned()).required(true))
+        .arg(Arg::new("player".to_owned()).required(false).completer(complete_players))
 }
 
 fn clear_player_inventory(client: &crate::clients::client::Client) -> usize {
@@ -131,7 +144,7 @@ pub(crate) fn command_give(
     match result {
         Some(Ok(())) => {
             sender.send_console_message(format!(
-                "Admin &a{}&r gave &e{}x {}&r to &a{}&r",
+                "&a{}&r gave &e{}x {}&r to &a{}&r",
                 sender.get_name(),
                 amount,
                 item_slug,
@@ -215,6 +228,93 @@ pub(crate) fn command_clear(
         changes,
     );
 
-    sender.send_console_message(format!("Admin &a{}&r cleared inventory of &a{}&r", sender.get_name(), login));
+    sender.send_console_message(format!("&a{}&r cleared inventory of &a{}&r", sender.get_name(), login));
+    Ok(())
+}
+
+pub(crate) fn command_teleport(
+    world: &mut World,
+    sender: Box<dyn ConsoleSenderType>,
+    args: CommandMatch,
+) -> Result<(), String> {
+    let x = args.get_arg::<f32, _>("x")?.clone();
+    let y = args.get_arg::<f32, _>("y")?.clone();
+    let z = args.get_arg::<f32, _>("z")?.clone();
+    let server_time = world.resource::<Time>().elapsed().as_secs_f64();
+    let worlds_manager = world.resource::<SharedWorldsManager>();
+    let sender_name = sender.get_name().clone();
+    let sender_client = sender.as_any().downcast_ref::<crate::clients::client::Client>();
+
+    let (target_login, world_entity) = if let Some(client) = sender_client {
+        let Some(world_entity) = client.get_world_entity() else {
+            sender.send_console_message(format!(
+                "Player \"{}\" is not in the world",
+                client.get_client_info().unwrap().get_login()
+            ));
+            return Ok(());
+        };
+
+        (client.get_client_info().unwrap().get_login().clone(), world_entity)
+    } else {
+        let Some(login) = args.get_arg::<String, _>("player").ok() else {
+            sender.send_console_message("Console must specify player".to_string());
+            return Ok(());
+        };
+
+        let Some(clients) = world.get_resource::<SharedClientsContainer>() else {
+            sender.send_console_message("&cClients container is not loaded".to_string());
+            return Ok(());
+        };
+
+        let clients_guard = clients.read();
+        let Some(target_client) = clients_guard.get_by_login(&login) else {
+            sender.send_console_message(format!("&cPlayer with login \"{}\" not found", login));
+            return Ok(());
+        };
+
+        let Some(world_entity) = target_client.get_world_entity() else {
+            sender.send_console_message(format!("Player \"{}\" is not in the world", login));
+            return Ok(());
+        };
+
+        (login, world_entity)
+    };
+    let target_is_sender = sender_client
+        .and_then(|client| client.get_client_info().map(|info| info.get_login().clone()))
+        .map(|login| login == target_login)
+        .unwrap_or(false);
+
+    let position = Position::new(x, y, z);
+    let rotation = Rotation::new(0.0, 0.0);
+
+    let worlds_manager = worlds_manager.write();
+    let mut world_manager = worlds_manager.get_world_manager_mut(&world_entity.get_world_slug()).unwrap();
+
+    move_player(
+        &mut *world_manager,
+        &world_entity,
+        position,
+        rotation,
+        AnimationState::Idle,
+        server_time,
+    );
+
+    sender.send_console_message(format!(
+        "&a{}&r teleported &a{}&r to &e{}, {}, {}&r",
+        sender_name, target_login, x, y, z
+    ));
+    let Some(clients) = world.get_resource::<SharedClientsContainer>() else {
+        return Ok(());
+    };
+    let clients_guard = clients.read();
+    if let Some(target_client) = clients_guard.get_by_login(&target_login) {
+        target_client.network_send_spawn(&Position::new(x, y, z), &Rotation::new(0.0, 0.0), &Vec::new());
+        if !target_is_sender {
+            target_client.send_console_message(format!(
+                "&a{}&r teleported you to &e{}, {}, {}&r",
+                sender_name, x, y, z
+            ));
+        }
+    }
     Ok(())
 }

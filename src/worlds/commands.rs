@@ -1,7 +1,6 @@
 use bevy::prelude::World;
 use bevy_ecs::system::Command;
 use common::chunks::block_position::BlockPositionTrait;
-use network::messages::{NetworkMessageType, ServerMessages};
 
 use super::worlds_manager::SharedWorldsManager;
 use crate::{
@@ -60,14 +59,7 @@ impl Command for SpawnPlayer {
         self.client.set_world_entity(Some(world_entity.clone()));
 
         // Send world creation message
-        let spawn_world = ServerMessages::SpawnWorld {
-            world_slug: self.world_slug.clone(),
-        };
-        self.client
-            .send_message(NetworkMessageType::ReliableOrdered, &spawn_world);
-
-        self.client
-            .network_send_spawn(&self.position, &self.rotation, &self.components);
+        self.client.network_send_spawn_pending();
 
         if is_chunk_loaded {
             world

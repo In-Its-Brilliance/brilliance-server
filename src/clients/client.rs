@@ -194,6 +194,15 @@ impl Client {
         *self.world_entity.write() = world_entity;
     }
 
+    pub fn network_send_spawn_pending(&self) {
+        let lock = self.get_world_entity();
+        let world_entity = lock.as_ref().unwrap();
+        let input = ServerMessages::SpawnWorldPending {
+            world_slug: world_entity.get_world_slug().clone(),
+        };
+        self.send_message(NetworkMessageType::ReliableOrdered, &input);
+    }
+
     pub fn network_send_spawn(&self, position: &Position, rotation: &Rotation, components: &Vec<EntityComponent>) {
         let lock = self.get_world_entity();
         let world_entity = lock.as_ref().unwrap();
@@ -205,6 +214,10 @@ impl Client {
             components,
         };
         self.send_message(NetworkMessageType::ReliableOrdered, &input);
+    }
+
+    pub fn send_console_message(&self, message: String) {
+        ConsoleSender::send_console_message(self, message);
     }
 
     /// If too many chunks currently was sended and waiting

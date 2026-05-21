@@ -99,6 +99,11 @@ impl ServerSettings {
         self.block_id_map.as_ref().expect("block_id_map is not set")
     }
 
+    pub fn get_block_type_by_id(&self, id: BlockIndexType) -> Option<&BlockType> {
+        let slug = self.block_id_map.as_ref()?.get(&id)?;
+        self.blocks.iter().find(|block_type| block_type.get_slug() == slug)
+    }
+
     pub fn add_block(&mut self, block_type: BlockType) {
         self.blocks.push(block_type);
     }

@@ -6,7 +6,6 @@ use network::messages::InventoryAction as ClientInventoryAction;
 
 use crate::{
     clients::{client::Client, clients_container::SharedClientsContainer},
-    console::console_sender::ConsoleSender,
     inventory::SharedInventoryManager,
     items_manager::items_manager::SharedItemsManager,
     network::server::NetworkEventListener,

@@ -15,6 +15,12 @@ pub struct Position {
     z: PositionFloatType,
 }
 
+impl std::fmt::Display for Position {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "[x:{} y:{} z:{}]", self.x, self.y, self.z)
+    }
+}
+
 impl PartialEq for Position {
     fn eq(&self, other: &Self) -> bool {
         self.x == other.x && self.y == other.y && self.z == other.z

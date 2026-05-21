@@ -1,7 +1,7 @@
 use crate::{
-    inventory::inventory_manager::InventoryManager,
-    plugins::server_plugin::plugin_instance::WASMPluginManager, runtime_plugin::RuntimePlugin,
-    worlds::world_manager::ChunkChanged, CHUNKS_DESPAWN_TIMER,
+    inventory::inventory_manager::InventoryManager, plugins::server_plugin::plugin_instance::WASMPluginManager,
+    plugins::server_settings::ServerSettings,
+    runtime_plugin::RuntimePlugin, worlds::world_manager::ChunkChanged, CHUNKS_DESPAWN_TIMER,
 };
 use ahash::AHashMap;
 use bevy::prelude::Entity;
@@ -10,8 +10,9 @@ use common::{
         block_position::{BlockPosition, BlockPositionTrait},
         chunk_data::BlockDataInfo,
         chunk_position::ChunkPosition,
+        position::Vector3,
     },
-    utils::{spiral_iterator::SpiralIterator, vec_remove_item},
+    utils::{block_raycast::RayBlockIter, spiral_iterator::SpiralIterator, vec_remove_item},
     world_generator::traits::WorldGeneratorSettings,
     worlds_storage::taits::IWorldStorage,
     WorldStorageManager, VERTICAL_SECTIONS,
@@ -269,7 +270,9 @@ impl ChunkMap {
             let chunk_position = *chunk_column.get_chunk_position();
             let storage = self.storage.clone();
 
-            inventory_manager.state_mut().unregister_chunk_inventories(&chunk_storage);
+            inventory_manager
+                .state_mut()
+                .unregister_chunk_inventories(&chunk_storage);
 
             rayon::spawn(move || {
                 if RuntimePlugin::is_stopped() {
@@ -345,6 +348,42 @@ impl ChunkMap {
             }
         }
         Ok(())
+    }
+
+    pub fn first_solid_block(
+        &self,
+        origin: Vector3,
+        dir: Vector3,
+        max_dist: f32,
+        server_settings: &ServerSettings,
+    ) -> Option<BlockPosition> {
+        for step in RayBlockIter::new(origin, dir, max_dist) {
+            let chunk_position = step.pos.get_chunk_position();
+            let Some(chunk_column) = self.chunks.get(&chunk_position) else {
+                continue;
+            };
+
+            let chunk_column = chunk_column.read();
+            if !chunk_column.is_loaded() {
+                continue;
+            }
+
+            let Some(block_info) = chunk_column.get_chunk_storage().get_chunk_data().get_block_info(&step.pos) else {
+                continue;
+            };
+
+            let Some(block_type) = server_settings.get_block_type_by_id(block_info.get_id()) else {
+                panic!(
+                    "first_solid_block: block id {} is not found in server settings",
+                    block_info.get_id()
+                );
+            };
+
+            if !block_type.get_collider_type().is_sensor() {
+                return Some(step.pos);
+            }
+        }
+        None
     }
 }
 
@@ -444,7 +483,12 @@ ___________
         let pos = ChunkPosition::new(0, 0);
 
         chunk_map.chunks_load_state.insert_ticket(pos.clone(), entity.clone());
-        chunk_map.update_chunks_state(Duration::from_secs(1), &world_slug, wasm_plugin_manager.clone(), &mut inventory_manager);
+        chunk_map.update_chunks_state(
+            Duration::from_secs(1),
+            &world_slug,
+            wasm_plugin_manager.clone(),
+            &mut inventory_manager,
+        );
         assert_eq!(chunk_map.chunks.len(), 1, "One chunk must be created");
 
         // Set created chunk loaded (set_chunk_data)
@@ -462,7 +506,12 @@ ___________
             .set_despawn_timer(CHUNKS_DESPAWN_TIMER);
 
         chunk_map.chunks_load_state.remove_ticket(&pos, &entity);
-        chunk_map.update_chunks_state(Duration::from_secs(1), &world_slug, wasm_plugin_manager, &mut inventory_manager);
+        chunk_map.update_chunks_state(
+            Duration::from_secs(1),
+            &world_slug,
+            wasm_plugin_manager,
+            &mut inventory_manager,
+        );
         assert_eq!(
             chunk_map.chunks.len(),
             0,
