@@ -232,10 +232,12 @@ fn drain_network_system(
                 }
                 ConnectionMessages::Disconnect { client_id, reason } => {
                     let clients_guard = clients.read();
+
+                    // Happends while shot down server
                     let Some(client) = clients_guard.get(&client_id) else {
-                        log::warn!(target: "network", "Disconnect for missing client_id: {}", client_id);
                         continue;
                     };
+
                     disconnect_channel
                         .0
                         .emit_event(PlayerDisconnectEvent::new(client.clone(), reason));

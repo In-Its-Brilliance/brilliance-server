@@ -138,9 +138,10 @@ impl WorldManager {
         changed_chunks
     }
 
-    pub fn save(&mut self) -> Result<(), String> {
-        self.chunks_map.save()?;
-        log::info!(target: "worlds", "World &a\"{}\"&r saved", self.get_slug());
+    pub fn save(&self) -> Result<(), String> {
+        let now = std::time::Instant::now();
+        let count = self.chunks_map.save()?;
+        log::info!(target: "worlds", "World &a\"{}\"&r saved; &8chunks:&7{} &8(executed:{:.2?})", self.get_slug(), count, now.elapsed());
         Ok(())
     }
 

@@ -33,8 +33,8 @@ impl WorldsManager {
     }
 
     pub fn save_all(&self) -> Result<(), String> {
-        for mut entry in self.worlds.iter_mut() {
-            entry.value_mut().save()?;
+        for entry in self.worlds.iter() {
+            entry.value().save()?;
         }
         Ok(())
     }

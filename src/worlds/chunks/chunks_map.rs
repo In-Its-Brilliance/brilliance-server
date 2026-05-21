@@ -20,7 +20,9 @@ use common::{
 use parking_lot::RwLock;
 #[cfg(test)]
 use parking_lot::RwLockReadGuard;
+use rayon::prelude::*;
 use std::{
+    sync::atomic::{AtomicUsize, Ordering},
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -336,18 +338,18 @@ impl ChunkMap {
         return Ok(());
     }
 
-    pub fn save(&mut self) -> Result<(), String> {
-        for (_chunk_position, chunk_column) in self.chunks.iter() {
+    pub fn save(&self) -> Result<usize, String> {
+        let storage = Arc::clone(&self.storage);
+        let saved_chunks = AtomicUsize::new(0);
+
+        self.chunks.iter().par_bridge().try_for_each(|(_, chunk_column)| {
             let chunk_column = chunk_column.read();
-            let save_chunk_data = self
-                .storage
-                .read()
-                .save_chunk_data(chunk_column.get_chunk_position(), chunk_column.get_chunk_storage());
-            if let Err(e) = save_chunk_data {
-                return Err(e);
-            }
-        }
-        Ok(())
+            storage.read().save_chunk_data(chunk_column.get_chunk_position(), chunk_column.get_chunk_storage())?;
+            saved_chunks.fetch_add(1, Ordering::Relaxed);
+            Ok::<(), String>(())
+        })?;
+
+        Ok(saved_chunks.load(Ordering::Relaxed))
     }
 
     pub fn first_solid_block(

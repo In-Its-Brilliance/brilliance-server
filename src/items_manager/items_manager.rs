@@ -22,6 +22,8 @@ impl Default for ItemsManager {
 }
 
 impl ItemsManager {
+    const BLOCK_MAX_STACK_SIZE: u16 = 64;
+
     pub(crate) fn new() -> Self {
         Self { items: HashMap::new() }
     }
@@ -101,6 +103,17 @@ impl ItemsManager {
 
         self.items.insert(slug, item);
         Ok(())
+    }
+
+    pub(crate) fn get_max_stack_size(&self, item: &Item) -> u16 {
+        match item.get_item_kind() {
+            ItemKind::Block(_) => Self::BLOCK_MAX_STACK_SIZE,
+            ItemKind::CustomItem(slug) => self
+                .items
+                .get(slug)
+                .map(ItemInfo::max_stack_size)
+                .unwrap_or(1),
+        }
     }
 
     pub(crate) fn has_item(&self, slug: &str) -> bool {

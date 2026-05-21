@@ -345,7 +345,8 @@ pub fn add_inventory_item_raw(
         }
 
         let result = client.with_player_data_mut(|player_data| {
-            player_data.get_inventory_mut().add_item(item.clone(), |slot, updated_item| {
+            let max_stack_size = items_manager.read().get_max_stack_size(&item);
+            player_data.get_inventory_mut().add_item(item.clone(), max_stack_size, |slot, updated_item| {
                 emit_inventory_change_to_client(
                     client,
                     common::inventory::inventory::InventoryType::PlayerPersonal,
@@ -384,7 +385,8 @@ pub fn add_inventory_item_raw(
         return Ok(());
     };
 
-    let Ok(()) = block_inventory.get_inventory_mut().add_item(item.clone(), |slot, updated_item| {
+    let max_stack_size = items_manager.read().get_max_stack_size(&item);
+    let Ok(()) = block_inventory.get_inventory_mut().add_item(item.clone(), max_stack_size, |slot, updated_item| {
         emit_inventory_change_to_watchers(
             &clients,
             &inventory_manager.read(),

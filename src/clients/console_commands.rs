@@ -127,9 +127,10 @@ pub(crate) fn command_give(
     };
 
     let item = Item::create(item_slug.clone()).amount(amount);
+    let max_stack_size = items_manager.read().get_max_stack_size(&item);
 
     let result = client.with_player_data_mut(|player_data| {
-        player_data.get_inventory_mut().add_item(item, |slot, updated_item| {
+        player_data.get_inventory_mut().add_item(item, max_stack_size, |slot, updated_item| {
             send_inventory_changes_to_client(
                 client,
                 &crate::network::events::on_inventory_action::InventoryTarget::Client(client.get_client_id()),

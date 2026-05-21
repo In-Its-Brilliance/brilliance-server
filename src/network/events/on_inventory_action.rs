@@ -27,19 +27,6 @@ pub enum InventoryAction {
         to_slot: u16,
         amount: u16,
     },
-    Swap {
-        a_inventory: InventoryTarget,
-        a_slot: u16,
-        b_inventory: InventoryTarget,
-        b_slot: u16,
-    },
-    Split {
-        from_inventory: InventoryTarget,
-        from_slot: u16,
-        to_inventory: InventoryTarget,
-        to_slot: u16,
-        amount: u16,
-    },
     Drop {
         inventory: InventoryTarget,
         slot: u16,
@@ -68,30 +55,6 @@ impl InventoryAction {
                 to_slot,
                 amount,
             } => Self::Move {
-                from_inventory: map_target(client_id, from_inventory),
-                from_slot,
-                to_inventory: map_target(client_id, to_inventory),
-                to_slot,
-                amount,
-            },
-            ClientInventoryAction::Swap {
-                a_inventory,
-                a_slot,
-                b_inventory,
-                b_slot,
-            } => Self::Swap {
-                a_inventory: map_target(client_id, a_inventory),
-                a_slot,
-                b_inventory: map_target(client_id, b_inventory),
-                b_slot,
-            },
-            ClientInventoryAction::Split {
-                from_inventory,
-                from_slot,
-                to_inventory,
-                to_slot,
-                amount,
-            } => Self::Split {
                 from_inventory: map_target(client_id, from_inventory),
                 from_slot,
                 to_inventory: map_target(client_id, to_inventory),

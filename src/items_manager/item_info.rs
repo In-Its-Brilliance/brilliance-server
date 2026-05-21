@@ -98,4 +98,8 @@ impl ItemInfo {
     pub(crate) fn description(&self) -> &String {
         &self.description
     }
+
+    pub(crate) fn max_stack_size(&self) -> u16 {
+        self.max_stack_size
+    }
 }
