@@ -122,12 +122,30 @@ impl InventoryActions {
                         inventory_manager,
                         worlds_manager,
                         &a_inventory,
-                        |inventory| inventory.swap_slots(a_slot as usize, b_slot as usize),
+                        |inventory| {
+                            inventory.swap_slots(a_slot as usize, b_slot as usize);
+                            vec![
+                                InventorySlotChange {
+                                    slot: a_slot as usize,
+                                    item: Some({
+                                        let item = inventory
+                                            .get_slot(a_slot as usize)
+                                            .expect("swap_slots must leave item in source slot");
+                                        items_manager.read().to_client_item(item)
+                                    }),
+                                },
+                                InventorySlotChange {
+                                    slot: b_slot as usize,
+                                    item: Some({
+                                        let item = inventory
+                                            .get_slot(b_slot as usize)
+                                            .expect("swap_slots must leave item in target slot");
+                                        items_manager.read().to_client_item(item)
+                                    }),
+                                },
+                            ]
+                        },
                     );
-                    let changes = changes.map(|_| vec![
-                        InventorySlotChange { slot: a_slot as usize, item: None },
-                        InventorySlotChange { slot: b_slot as usize, item: None },
-                    ]);
                     broadcast_inventory_changes(client, clients, inventory_manager, a_inventory, changes);
                     return Ok(());
                 }

@@ -2,10 +2,9 @@ use std::collections::HashMap;
 
 use bevy_ecs::resource::Resource;
 use common::inventory::inventory::{ClientInventory, Inventory};
-use common::inventory::item::{BodyPart, ClientItem, ClientItemKind, Item, ItemKind, WeaponKind};
-use serde::{Deserialize, Serialize};
-use strum_macros::Display;
+use common::inventory::item::{ClientItem, ClientItemKind, Item, ItemKind};
 
+use super::item_info::{ItemInfo, ItemType};
 use crate::plugins::plugins_manager::PluginsManager;
 use crate::utils::Shared;
 
@@ -19,71 +18,6 @@ pub struct ItemsManager {
 impl Default for ItemsManager {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-#[derive(Display, Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum ItemType {
-    Armor {
-        body_part: BodyPart,
-
-        // resource png path; For client icon display
-        icon: String,
-
-        // Server internal info. resource glb path
-        model: String,
-    },
-    Weapon {
-        weapon_kind: WeaponKind,
-
-        // resource png path; For client icon display
-        icon: String,
-
-        // Server internal info. resource glb path
-        model: String,
-    },
-}
-
-impl ItemType {
-    pub(crate) fn armor(body_part: BodyPart, icon: impl Into<String>, model: impl Into<String>) -> Self {
-        Self::Armor {
-            body_part,
-            icon: icon.into(),
-            model: model.into(),
-        }
-    }
-
-    pub(crate) fn weapon(weapon_kind: WeaponKind, icon: impl Into<String>, model: impl Into<String>) -> Self {
-        Self::Weapon {
-            weapon_kind,
-            icon: icon.into(),
-            model: model.into(),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct ItemInfo {
-    slug: String,
-    item_type: ItemType,
-    title: String,
-    description: String,
-}
-
-impl ItemInfo {
-    pub(crate) fn create(
-        slug: impl Into<String>,
-        item_type: ItemType,
-        title: impl Into<String>,
-        description: impl Into<String>,
-    ) -> Self {
-        Self {
-            slug: slug.into(),
-            item_type,
-            title: title.into(),
-            description: description.into(),
-        }
     }
 }
 
@@ -108,16 +42,23 @@ impl ItemsManager {
                     );
                 };
 
-                let icon = match &info.item_type {
+                let icon = match info.item_type() {
                     ItemType::Armor { icon, .. } | ItemType::Weapon { icon, .. } => icon.clone(),
+                    ItemType::Other { icon } => icon.clone(),
                 };
 
                 ClientItem::create(
                     ClientItemKind::Icon(icon.clone()),
                     item.get_amount(),
                     Some(icon),
-                    Some(info.title.clone()),
-                    Some(info.description.clone()),
+                    match info.item_type() {
+                        ItemType::Other { .. } => None,
+                        _ => Some(info.title().clone()),
+                    },
+                    match info.item_type() {
+                        ItemType::Other { .. } => None,
+                        _ => Some(info.description().clone()),
+                    },
                 )
             }
         }
@@ -133,13 +74,13 @@ impl ItemsManager {
     }
 
     pub(crate) fn add_item(&mut self, plugins: &PluginsManager, item: ItemInfo) -> Result<(), String> {
-        let slug = item.slug.clone();
+        let slug = item.slug().clone();
 
         if self.items.contains_key(&slug) {
             return Err(format!("Item \"{}\" already exists", slug));
         }
 
-        match &item.item_type {
+        match item.item_type() {
             ItemType::Armor { icon, model, .. } | ItemType::Weapon { icon, model, .. } => {
                 if let Err(e) = plugins.has_media(icon) {
                     return Err(format!("Item \"{}\" icon media not found: \"{}\" ({})", slug, icon, e));
@@ -149,6 +90,11 @@ impl ItemsManager {
                         "Item \"{}\" model media not found: \"{}\" ({})",
                         slug, model, e
                     ));
+                }
+            }
+            ItemType::Other { icon } => {
+                if let Err(e) = plugins.has_media(icon) {
+                    return Err(format!("Item \"{}\" icon media not found: \"{}\" ({})", slug, icon, e));
                 }
             }
         }

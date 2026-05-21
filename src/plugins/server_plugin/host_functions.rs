@@ -4,7 +4,7 @@ use crate::{
         commands::{close_inventory, get_or_create_inventory, open_inventory},
         inventory_manager::InventoryManager,
     },
-    items_manager::items_manager::{ItemInfo as ServerItemInfo, ItemType as ServerItemType},
+    items_manager::{ItemInfo as ServerItemInfo, ItemType as ServerItemType},
     network::sync_world_change::sync_world_block_change,
     storage::storage_manager::StorageManager,
     worlds::worlds_manager::WorldsManager,
@@ -484,6 +484,7 @@ pub fn add_item_raw(
             icon,
             model,
         } => ServerItemType::weapon(weapon_kind.clone(), icon.clone(), model.clone()),
+        ApiItemType::Other { icon } => ServerItemType::other(icon.clone()),
     };
 
     let server_item = ServerItemInfo::create(
@@ -491,6 +492,7 @@ pub fn add_item_raw(
         server_item_type,
         item.get_title().clone(),
         item.get_description().clone(),
+        item.get_max_stack_size(),
     );
 
     let items_manager =
