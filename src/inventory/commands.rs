@@ -37,7 +37,11 @@ pub fn open_inventory(
     }
 
     let inventory_manager_guard = inventory_manager.read();
-    let Some(location) = inventory_manager_guard.state().get_inventory_location(&inventory_id).cloned() else {
+    let Some(location) = inventory_manager_guard
+        .state()
+        .get_inventory_location(&inventory_id)
+        .cloned()
+    else {
         log::error!(target: "inventory", "inventory {} is not registered", inventory_id);
         return;
     };
@@ -48,7 +52,10 @@ pub fn open_inventory(
         log::error!(target: "inventory", "world {} not found", location.get_world_slug());
         return;
     };
-    let Some(chunk_column_arc) = world_manager.get_chunks_map().get_chunk_column_arc(location.get_chunk_position()) else {
+    let Some(chunk_column_arc) = world_manager
+        .get_chunks_map()
+        .get_chunk_column_arc(location.get_chunk_position())
+    else {
         log::error!(target: "inventory", "chunk {:?} is not loaded", location.get_chunk_position());
         return;
     };
@@ -70,7 +77,9 @@ pub fn open_inventory(
         send_inventory_start_to_client(
             client,
             InventoryType::WorldInventory(inventory_id),
-            items_manager.read().to_client_inventory(block_inventory.get_inventory()),
+            items_manager
+                .read()
+                .to_client_inventory(block_inventory.get_inventory()),
         );
     }
 }
@@ -102,7 +111,10 @@ pub fn close_inventory(
     inventory_manager
         .write()
         .close_inventory(world_entity.get_entity(), inventory_id);
-    send_inventory_stop_to_client(client, &crate::network::events::on_inventory_action::InventoryTarget::World(inventory_id));
+    send_inventory_stop_to_client(
+        client,
+        &crate::network::events::on_inventory_action::InventoryTarget::World(inventory_id),
+    );
 }
 
 pub fn get_or_create_inventory(
@@ -129,15 +141,15 @@ pub fn get_or_create_inventory(
     let mut chunk_column = chunk_column_arc.write();
     let chunk_storage = chunk_column.get_chunk_storage_mut();
     let inventory_id = rand::random::<u64>();
-    let block_inventory = chunk_storage.get_or_create_inventory_by_position_mut(
-        section,
-        block_position,
-        slots_count,
-        inventory_id,
-    );
+    let block_inventory =
+        chunk_storage.get_or_create_inventory_by_position_mut(section, block_position, slots_count, inventory_id);
 
     let mut inventory_manager = inventory_manager.write();
-    if inventory_manager.state().get_inventory_location(&inventory_id).is_none() {
+    if inventory_manager
+        .state()
+        .get_inventory_location(&inventory_id)
+        .is_none()
+    {
         inventory_manager
             .state_mut()
             .register_world_inventory(world_slug, chunk_position, block_inventory);

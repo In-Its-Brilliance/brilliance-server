@@ -1,7 +1,7 @@
-use bevy_app::{App, Plugin, Startup};
-use bevy_ecs::system::Res;
-use bevy_ecs::schedule::IntoScheduleConfigs;
 use crate::plugins::server_plugin::host_functions::set_plugins_manager_bridge;
+use bevy_app::{App, Plugin, Startup};
+use bevy_ecs::schedule::IntoScheduleConfigs;
+use bevy_ecs::system::Res;
 use plugins_manager::{rescan_plugins, PluginsManager};
 use server_settings::{rescan_server_settings, setup_default_blocks, ServerSettings};
 

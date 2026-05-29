@@ -2,10 +2,8 @@ use common::inventory::inventory::{ClientInventory, InventoryType, InventoryType
 use network::messages::{InventorySlotChange, InventoryStream, NetworkMessageType, ServerMessages};
 
 use crate::{
-    clients::client::Client,
-    clients::clients_container::SharedClientsContainer,
-    inventory::inventory_manager::InventoryManager,
-    network::events::on_inventory_action::InventoryTarget,
+    clients::client::Client, clients::clients_container::SharedClientsContainer,
+    inventory::inventory_manager::InventoryManager, network::events::on_inventory_action::InventoryTarget,
 };
 
 pub fn send_inventory_stream(client: &Client, stream: InventoryStream) {
@@ -14,7 +12,13 @@ pub fn send_inventory_stream(client: &Client, stream: InventoryStream) {
 }
 
 pub fn send_inventory_start_to_client(client: &Client, inventory_type: InventoryType, inventory: ClientInventory) {
-    send_inventory_stream(client, InventoryStream::StartStream { inventory_type, inventory });
+    send_inventory_stream(
+        client,
+        InventoryStream::StartStream {
+            inventory_type,
+            inventory,
+        },
+    );
 }
 
 pub fn send_inventory_stop_to_client(client: &Client, target: &InventoryTarget) {
@@ -25,7 +29,7 @@ pub fn send_inventory_stop_to_client(client: &Client, target: &InventoryTarget) 
 }
 
 /// Convert server-side target into the client's view of the same inventory.
-fn inventory_type_for_recipient(target: &InventoryTarget, recipient_client_id: u64) -> InventoryType {   
+fn inventory_type_for_recipient(target: &InventoryTarget, recipient_client_id: u64) -> InventoryType {
     match target {
         InventoryTarget::Client(client_id) if *client_id == recipient_client_id => PlayerPersonal,
         InventoryTarget::Client(client_id) => OtherPlayer(*client_id),

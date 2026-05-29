@@ -8,10 +8,7 @@ use bevy_app::{App, Plugin, Startup};
 use common::timed_lock;
 use std::sync::Arc;
 
-use crate::{
-    plugins::server_plugin::host_functions::set_inventory_manager_bridge,
-    utils::Shared,
-};
+use crate::{plugins::server_plugin::host_functions::set_inventory_manager_bridge, utils::Shared};
 
 pub type SharedInventoryManager = Shared<inventory_manager::InventoryManager>;
 

@@ -10,13 +10,10 @@ use crate::{
     worlds::worlds_manager::WorldsManager,
 };
 use common::{
-    chunks::{
-        block_position::BlockPosition,
-        chunk_data::BlockDataInfo,
-    },
+    chunks::{block_position::BlockPosition, chunk_data::BlockDataInfo},
     inventory::item::{Item, ItemKind},
-    plugin_api::items_manager::{ItemInfo as ApiItemInfo, ItemType as ApiItemType},
     plugin_api::inventory::OpenInventoryRequest,
+    plugin_api::items_manager::{ItemInfo as ApiItemInfo, ItemType as ApiItemType},
     server_storage::taits::{IServerStorage, PlayerData},
     utils::debug::SmartRwLock,
 };
@@ -35,7 +32,8 @@ static WORLDS_MANAGER_BRIDGE: OnceLock<Arc<SmartRwLock<WorldsManager>>> = OnceLo
 static SERVER_STORAGE_BRIDGE: OnceLock<Arc<SmartRwLock<StorageManager>>> = OnceLock::new();
 static CLIENTS_CONTAINER_BRIDGE: OnceLock<Arc<SmartRwLock<ClientsContainer>>> = OnceLock::new();
 static INVENTORY_MANAGER_BRIDGE: OnceLock<Arc<SmartRwLock<InventoryManager>>> = OnceLock::new();
-static ITEMS_MANAGER_BRIDGE: OnceLock<Arc<SmartRwLock<crate::items_manager::items_manager::ItemsManager>>> = OnceLock::new();
+static ITEMS_MANAGER_BRIDGE: OnceLock<Arc<SmartRwLock<crate::items_manager::items_manager::ItemsManager>>> =
+    OnceLock::new();
 static PLUGINS_MANAGER_BRIDGE: OnceLock<usize> = OnceLock::new();
 
 #[derive(Default)]
@@ -111,13 +109,26 @@ fn resolve_plugin_path(root_path: &Path, relative_path: &str) -> Result<PathBuf,
     }
 
     let full_path = root_path.join(sanitized);
-    let canonical_root = fs::canonicalize(root_path)
-        .map_err(|e| Error::msg(format!("Failed to canonicalize plugin root \"{}\": {}", root_path.display(), e)))?;
-    let canonical_full = fs::canonicalize(&full_path)
-        .map_err(|e| Error::msg(format!("Failed to access plugin path \"{}\": {}", full_path.display(), e)))?;
+    let canonical_root = fs::canonicalize(root_path).map_err(|e| {
+        Error::msg(format!(
+            "Failed to canonicalize plugin root \"{}\": {}",
+            root_path.display(),
+            e
+        ))
+    })?;
+    let canonical_full = fs::canonicalize(&full_path).map_err(|e| {
+        Error::msg(format!(
+            "Failed to access plugin path \"{}\": {}",
+            full_path.display(),
+            e
+        ))
+    })?;
 
     if !canonical_full.starts_with(&canonical_root) {
-        return Err(Error::msg(format!("Plugin path \"{}\" is outside plugin root", relative_path)));
+        return Err(Error::msg(format!(
+            "Plugin path \"{}\" is outside plugin root",
+            relative_path
+        )));
     }
 
     Ok(canonical_full)
@@ -143,7 +154,9 @@ fn ensure_not_hardlinked(path: &Path) -> Result<(), Error> {
 
 fn list_dir_entries(path: &Path) -> Result<Vec<String>, Error> {
     let mut entries = Vec::new();
-    for entry in fs::read_dir(path).map_err(|e| Error::msg(format!("Failed to read dir \"{}\": {}", path.display(), e)))? {
+    for entry in
+        fs::read_dir(path).map_err(|e| Error::msg(format!("Failed to read dir \"{}\": {}", path.display(), e)))?
+    {
         let entry = entry.map_err(|e| Error::msg(format!("Failed to read dir entry: {}", e)))?;
         let file_name = entry
             .file_name()
@@ -314,8 +327,8 @@ pub fn add_inventory_item_raw(
 ) -> Result<(), Error> {
     let inventory_id: u64 = plugin.memory_get_val(&inputs[0])?;
     let item_json: String = plugin.memory_get_val(&inputs[1])?;
-    let item: Item = serde_json::from_str(&item_json)
-        .map_err(|e| Error::msg(format!("Invalid inventory item json: {}", e)))?;
+    let item: Item =
+        serde_json::from_str(&item_json).map_err(|e| Error::msg(format!("Invalid inventory item json: {}", e)))?;
 
     if let ItemKind::CustomItem(slug) = item.get_item_kind() {
         let items_manager =
@@ -326,7 +339,8 @@ pub fn add_inventory_item_raw(
         }
     }
 
-    let clients = get_clients_container_bridge().ok_or_else(|| Error::msg("ClientsContainer bridge is not initialized"))?;
+    let clients =
+        get_clients_container_bridge().ok_or_else(|| Error::msg("ClientsContainer bridge is not initialized"))?;
     let inventory_manager =
         get_inventory_manager_bridge().ok_or_else(|| Error::msg("InventoryManager bridge is not initialized"))?;
     let worlds_manager =
@@ -346,15 +360,17 @@ pub fn add_inventory_item_raw(
 
         let result = client.with_player_data_mut(|player_data| {
             let max_stack_size = items_manager.read().get_max_stack_size(&item);
-            player_data.get_inventory_mut().add_item(item.clone(), max_stack_size, |slot, updated_item| {
-                emit_inventory_change_to_client(
-                    client,
-                    common::inventory::inventory::InventoryType::PlayerPersonal,
-                    slot,
-                    updated_item,
-                    &items_manager,
-                );
-            })
+            player_data
+                .get_inventory_mut()
+                .add_item(item.clone(), max_stack_size, |slot, updated_item| {
+                    emit_inventory_change_to_client(
+                        client,
+                        common::inventory::inventory::InventoryType::PlayerPersonal,
+                        slot,
+                        updated_item,
+                        &items_manager,
+                    );
+                })
         });
         let Some(Ok(())) = result else {
             plugin.memory_set_val(&mut outputs[0], "full")?;
@@ -365,7 +381,12 @@ pub fn add_inventory_item_raw(
     }
     drop(clients_guard);
 
-    let Some(location) = inventory_manager.read().state().get_inventory_location(&inventory_id).cloned() else {
+    let Some(location) = inventory_manager
+        .read()
+        .state()
+        .get_inventory_location(&inventory_id)
+        .cloned()
+    else {
         plugin.memory_set_val(&mut outputs[0], "not_found")?;
         return Ok(());
     };
@@ -375,7 +396,10 @@ pub fn add_inventory_item_raw(
         plugin.memory_set_val(&mut outputs[0], "not_found")?;
         return Ok(());
     };
-    let Some(chunk_column_arc) = world_manager.get_chunks_map().get_chunk_column_arc(location.get_chunk_position()) else {
+    let Some(chunk_column_arc) = world_manager
+        .get_chunks_map()
+        .get_chunk_column_arc(location.get_chunk_position())
+    else {
         plugin.memory_set_val(&mut outputs[0], "not_found")?;
         return Ok(());
     };
@@ -386,16 +410,19 @@ pub fn add_inventory_item_raw(
     };
 
     let max_stack_size = items_manager.read().get_max_stack_size(&item);
-    let Ok(()) = block_inventory.get_inventory_mut().add_item(item.clone(), max_stack_size, |slot, updated_item| {
-        emit_inventory_change_to_watchers(
-            &clients,
-            &inventory_manager.read(),
-            inventory_id,
-            slot,
-            updated_item,
-            &items_manager,
-        );
-    }) else {
+    let Ok(()) = block_inventory
+        .get_inventory_mut()
+        .add_item(item.clone(), max_stack_size, |slot, updated_item| {
+            emit_inventory_change_to_watchers(
+                &clients,
+                &inventory_manager.read(),
+                inventory_id,
+                slot,
+                updated_item,
+                &items_manager,
+            );
+        })
+    else {
         plugin.memory_set_val(&mut outputs[0], "full")?;
         return Ok(());
     };
@@ -472,15 +499,13 @@ pub fn add_item_raw(
     _user_data: UserData<SharedHostContext>,
 ) -> Result<(), Error> {
     let item_json: String = plugin.memory_get_val(&inputs[0])?;
-    let item: ApiItemInfo = serde_json::from_str(&item_json)
-        .map_err(|e| Error::msg(format!("Invalid item info json: {}", e)))?;
+    let item: ApiItemInfo =
+        serde_json::from_str(&item_json).map_err(|e| Error::msg(format!("Invalid item info json: {}", e)))?;
 
     let server_item_type = match item.get_item_type() {
-        ApiItemType::Armor {
-            body_part,
-            icon,
-            model,
-        } => ServerItemType::armor(body_part.clone(), icon.clone(), model.clone()),
+        ApiItemType::Armor { body_part, icon, model } => {
+            ServerItemType::armor(body_part.clone(), icon.clone(), model.clone())
+        }
         ApiItemType::Weapon {
             weapon_kind,
             icon,

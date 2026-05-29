@@ -16,8 +16,7 @@ impl WASMPluginManager {
         let mut config = wasmtime::Config::new();
         config.wasm_backtrace(false);
 
-        let primary =
-            PluginInstance::new(wasm_path, plugin_root_path, slug, config.clone()).map(Mutex::new)?;
+        let primary = PluginInstance::new(wasm_path, plugin_root_path, slug, config.clone()).map(Mutex::new)?;
 
         let rest: Result<Vec<_>, String> = (1..pool_size)
             .into_par_iter()
@@ -81,8 +80,10 @@ impl PluginInstance {
         let wasm = extism::Wasm::file(wasm_path);
         let manifest = extism::Manifest::new([wasm]);
 
-        let ctx: SharedHostContext =
-            Arc::new(Mutex::new(HostContext::create(slug.to_string(), plugin_root_path.clone())));
+        let ctx: SharedHostContext = Arc::new(Mutex::new(HostContext::create(
+            slug.to_string(),
+            plugin_root_path.clone(),
+        )));
 
         let builder = extism::PluginBuilder::new(manifest)
             .with_wasi(true)

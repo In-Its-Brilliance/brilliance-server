@@ -1,7 +1,7 @@
 use crate::{
     inventory::inventory_manager::InventoryManager, plugins::server_plugin::plugin_instance::WASMPluginManager,
-    plugins::server_settings::ServerSettings,
-    runtime_plugin::RuntimePlugin, worlds::world_manager::ChunkChanged, CHUNKS_DESPAWN_TIMER,
+    plugins::server_settings::ServerSettings, runtime_plugin::RuntimePlugin, worlds::world_manager::ChunkChanged,
+    CHUNKS_DESPAWN_TIMER,
 };
 use ahash::AHashMap;
 use bevy::prelude::Entity;
@@ -344,7 +344,9 @@ impl ChunkMap {
 
         self.chunks.iter().par_bridge().try_for_each(|(_, chunk_column)| {
             let chunk_column = chunk_column.read();
-            storage.read().save_chunk_data(chunk_column.get_chunk_position(), chunk_column.get_chunk_storage())?;
+            storage
+                .read()
+                .save_chunk_data(chunk_column.get_chunk_position(), chunk_column.get_chunk_storage())?;
             saved_chunks.fetch_add(1, Ordering::Relaxed);
             Ok::<(), String>(())
         })?;
@@ -370,7 +372,11 @@ impl ChunkMap {
                 continue;
             }
 
-            let Some(block_info) = chunk_column.get_chunk_storage().get_chunk_data().get_block_info(&step.pos) else {
+            let Some(block_info) = chunk_column
+                .get_chunk_storage()
+                .get_chunk_data()
+                .get_block_info(&step.pos)
+            else {
                 continue;
             };
 

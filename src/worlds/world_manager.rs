@@ -2,8 +2,8 @@ use super::ecs::Ecs;
 use crate::clients::client::WorldEntity;
 use crate::entities::entity::{Position, Rotation};
 use crate::entities::EntityComponent;
-use crate::plugins::server_plugin::plugin_instance::WASMPluginManager;
 use crate::inventory::inventory_manager::InventoryManager;
+use crate::plugins::server_plugin::plugin_instance::WASMPluginManager;
 use crate::worlds::chunks::chunks_map::ChunkMap;
 use crate::CHUNKS_DISTANCE;
 use bevy_ecs::bundle::Bundle;
@@ -166,6 +166,7 @@ impl WorldManager {
         inventory_manager: &mut InventoryManager,
     ) {
         let world_slug = self.get_slug().clone();
-        self.chunks_map.update_chunks_state(delta, &world_slug, wasm_plugin_manager, inventory_manager);
+        self.chunks_map
+            .update_chunks_state(delta, &world_slug, wasm_plugin_manager, inventory_manager);
     }
 }

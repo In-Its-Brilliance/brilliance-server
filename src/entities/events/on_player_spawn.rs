@@ -13,7 +13,7 @@ use crate::{
     },
     network::{
         sync_entities::sync_entity_spawn,
-        sync_players::{PlayerSpawnEvent, send_entities_for_player},
+        sync_players::{send_entities_for_player, PlayerSpawnEvent},
     },
     plugins::{plugins_manager::PluginsManager, server_settings::ServerSettings},
     worlds::worlds_manager::SharedWorldsManager,
@@ -92,7 +92,10 @@ pub(crate) fn on_player_spawn(
             }
         }
 
-        entity_ref.get::<Client>().unwrap().network_send_spawn(&position, &rotation, &components);
+        entity_ref
+            .get::<Client>()
+            .unwrap()
+            .network_send_spawn(&position, &rotation, &components);
 
         if entity_ref.get::<EntitySkinComponent>().is_some() {
             sync_entity_spawn(&*world_manager, target_entity);

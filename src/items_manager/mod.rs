@@ -5,10 +5,10 @@ pub use item_info::{ItemInfo, ItemType};
 
 use std::sync::Arc;
 
+use crate::plugins::server_plugin::host_functions::set_items_manager_bridge;
 use bevy_app::{App, Plugin};
 use bevy_ecs::system::Res;
 use common::timed_lock;
-use crate::plugins::server_plugin::host_functions::set_items_manager_bridge;
 use items_manager::{ItemsManager, SharedItemsManager};
 
 #[derive(Default)]

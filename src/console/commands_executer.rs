@@ -1,11 +1,11 @@
 use super::console_sender::ConsoleSenderType;
-use std::any::Any;
 use bevy_ecs::{resource::Resource, world::World};
 use common::commands::{
     command::{ArgCompleterContext, Command, CommandMatch},
     complitions::{CompleteRequest, CompleteResponse},
 };
 use log::error;
+use std::any::Any;
 
 // https://github.com/clap-rs/clap/blob/master/examples/pacman.rs
 

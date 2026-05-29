@@ -1,14 +1,10 @@
-use common::{
-    inventory::{
-        inventory::Inventory,
-        item::Item,
-    },
-};
+use common::inventory::{inventory::Inventory, item::Item};
 use network::messages::InventorySlotChange;
 
 use crate::{
     clients::client::Client,
     clients::clients_container::SharedClientsContainer,
+    inventory::inventory_manager::InventoryManager,
     items_manager::items_manager::SharedItemsManager,
     network::{
         events::on_inventory_action::{InventoryAction, InventoryTarget},
@@ -16,7 +12,6 @@ use crate::{
             broadcast_world_inventory_changes, send_inventory_changes_to_client, send_inventory_stop_to_client,
         },
     },
-    inventory::inventory_manager::InventoryManager,
     worlds::worlds_manager::SharedWorldsManager,
 };
 
@@ -48,7 +43,15 @@ impl InventoryActions {
                         inventory_manager,
                         worlds_manager,
                         &from_inventory,
-                        |inventory| move_within_inventory(inventory, items_manager, from_slot as usize, to_slot as usize, amount),
+                        |inventory| {
+                            move_within_inventory(
+                                inventory,
+                                items_manager,
+                                from_slot as usize,
+                                to_slot as usize,
+                                amount,
+                            )
+                        },
                     );
                     broadcast_inventory_changes(client, clients, inventory_manager, from_inventory, changes);
                     return Ok(());
@@ -88,7 +91,8 @@ impl InventoryActions {
                 broadcast_inventory_changes(client, clients, inventory_manager, inventory, changes);
             }
             InventoryAction::Close { inventory } => {
-                if matches!(&inventory, InventoryTarget::Client(target_client_id) if *target_client_id == client.get_client_id()) {
+                if matches!(&inventory, InventoryTarget::Client(target_client_id) if *target_client_id == client.get_client_id())
+                {
                     log::error!(
                         target: "inventory",
                         "client {} tried to close own inventory",
@@ -121,7 +125,11 @@ impl InventoryActions {
         Ok(())
     }
 
-    fn authorize_action(client: &Client, action: &InventoryAction, inventory_manager: &InventoryManager) -> Result<(), String> {
+    fn authorize_action(
+        client: &Client,
+        action: &InventoryAction,
+        inventory_manager: &InventoryManager,
+    ) -> Result<(), String> {
         match action {
             InventoryAction::Move {
                 from_inventory,
@@ -219,7 +227,9 @@ fn with_inventory_mut<R>(
             let location = inventory_manager.state().get_inventory_location(inventory_id)?.clone();
             let worlds = worlds_manager.read();
             let world = worlds.get_world_manager(location.get_world_slug())?;
-            let chunk_column_arc = world.get_chunks_map().get_chunk_column_arc(location.get_chunk_position())?;
+            let chunk_column_arc = world
+                .get_chunks_map()
+                .get_chunk_column_arc(location.get_chunk_position())?;
             let mut chunk_column = chunk_column_arc.write();
             let chunk_storage = chunk_column.get_chunk_storage_mut();
             let block_inventory = chunk_storage.get_inventory_mut(*inventory_id)?;
@@ -249,7 +259,9 @@ fn with_inventory_ref<R>(
             let location = inventory_manager.state().get_inventory_location(inventory_id)?.clone();
             let worlds = worlds_manager.read();
             let world = worlds.get_world_manager(location.get_world_slug())?;
-            let chunk_column_arc = world.get_chunks_map().get_chunk_column_arc(location.get_chunk_position())?;
+            let chunk_column_arc = world
+                .get_chunks_map()
+                .get_chunk_column_arc(location.get_chunk_position())?;
             let mut chunk_column = chunk_column_arc.write();
             let chunk_storage = chunk_column.get_chunk_storage_mut();
             let block_inventory = chunk_storage.get_inventory_mut(*inventory_id)?;
@@ -267,10 +279,19 @@ fn take_slot(
     slot: usize,
 ) -> Option<(InventoryTarget, Item, Vec<InventorySlotChange>)> {
     let mut item = None;
-    let changes = with_inventory_mut(client, clients, inventory_manager, worlds_manager, inventory_target, |inventory| {
-        item = inventory.take_slot(slot);
-        item.as_ref().map(|_| vec![InventorySlotChange { slot, item: None }]).unwrap_or_default()
-    })?;
+    let changes = with_inventory_mut(
+        client,
+        clients,
+        inventory_manager,
+        worlds_manager,
+        inventory_target,
+        |inventory| {
+            item = inventory.take_slot(slot);
+            item.as_ref()
+                .map(|_| vec![InventorySlotChange { slot, item: None }])
+                .unwrap_or_default()
+        },
+    )?;
     Some((inventory_target.clone(), item?, changes))
 }
 
@@ -286,32 +307,39 @@ fn extract_item(
 ) -> Option<(InventoryTarget, Item, Vec<InventorySlotChange>)> {
     let mut extracted = None;
     let mut source_change = Vec::new();
-    with_inventory_mut(client, clients, inventory_manager, worlds_manager, inventory_target, |inventory| {
-        let Some(mut item) = inventory.take_slot(slot) else {
-            return;
-        };
-        let transfer = amount.min(item.get_amount());
-        if transfer == 0 {
-            inventory.set_slot_option(slot, Some(item));
-            return;
-        }
-        let remaining = item.get_amount() - transfer;
-        let moved = item.clone().amount(transfer);
-        if remaining == 0 {
-            source_change = vec![InventorySlotChange { slot, item: None }];
-        } else {
-            item = item.amount(remaining);
-            inventory.set_slot_option(slot, Some(item));
-            source_change = vec![InventorySlotChange {
-                slot,
-                item: inventory
-                    .get_slot(slot)
-                    .cloned()
-                    .map(|item| items_manager.read().to_client_item(&item)),
-            }];
-        }
-        extracted = Some(moved);
-    })?;
+    with_inventory_mut(
+        client,
+        clients,
+        inventory_manager,
+        worlds_manager,
+        inventory_target,
+        |inventory| {
+            let Some(mut item) = inventory.take_slot(slot) else {
+                return;
+            };
+            let transfer = amount.min(item.get_amount());
+            if transfer == 0 {
+                inventory.set_slot_option(slot, Some(item));
+                return;
+            }
+            let remaining = item.get_amount() - transfer;
+            let moved = item.clone().amount(transfer);
+            if remaining == 0 {
+                source_change = vec![InventorySlotChange { slot, item: None }];
+            } else {
+                item = item.amount(remaining);
+                inventory.set_slot_option(slot, Some(item));
+                source_change = vec![InventorySlotChange {
+                    slot,
+                    item: inventory
+                        .get_slot(slot)
+                        .cloned()
+                        .map(|item| items_manager.read().to_client_item(&item)),
+                }];
+            }
+            extracted = Some(moved);
+        },
+    )?;
     Some((inventory_target.clone(), extracted?, source_change))
 }
 
@@ -325,8 +353,13 @@ fn insert_item(
     slot: usize,
     item: Item,
 ) -> Option<(InventoryTarget, Vec<InventorySlotChange>)> {
-    let changes = with_inventory_mut(client, clients, inventory_manager, worlds_manager, inventory_target, |inventory| {
-        match inventory.get_slot(slot).cloned() {
+    let changes = with_inventory_mut(
+        client,
+        clients,
+        inventory_manager,
+        worlds_manager,
+        inventory_target,
+        |inventory| match inventory.get_slot(slot).cloned() {
             Some(existing) if existing.can_stack_with(&item) => {
                 let max_stack_size = items_manager.read().get_max_stack_size(&item);
                 let space = max_stack_size.saturating_sub(existing.get_amount());
@@ -349,8 +382,8 @@ fn insert_item(
                 }]
             }
             _ => Vec::new(),
-        }
-    })?;
+        },
+    )?;
     if changes.is_empty() {
         return None;
     }
@@ -471,7 +504,12 @@ fn move_between_inventories(
     to_inventory: InventoryTarget,
     to_slot: usize,
     amount: u16,
-) -> Option<(InventoryTarget, Vec<InventorySlotChange>, InventoryTarget, Vec<InventorySlotChange>)> {
+) -> Option<(
+    InventoryTarget,
+    Vec<InventorySlotChange>,
+    InventoryTarget,
+    Vec<InventorySlotChange>,
+)> {
     let source_item = with_inventory_ref(
         client,
         clients,
@@ -575,7 +613,12 @@ fn swap_between_inventories(
     from_slot: usize,
     to_inventory: InventoryTarget,
     to_slot: usize,
-) -> Option<(InventoryTarget, Vec<InventorySlotChange>, InventoryTarget, Vec<InventorySlotChange>)> {
+) -> Option<(
+    InventoryTarget,
+    Vec<InventorySlotChange>,
+    InventoryTarget,
+    Vec<InventorySlotChange>,
+)> {
     let Some((from_type, from_item, _)) = take_slot(
         client,
         clients,
@@ -607,12 +650,26 @@ fn swap_between_inventories(
         return None;
     };
 
-    let _ = with_inventory_mut(client, clients, inventory_manager, worlds_manager, &from_type, |inventory| {
-        inventory.set_slot_option(from_slot, Some(to_item.clone()));
-    });
-    let _ = with_inventory_mut(client, clients, inventory_manager, worlds_manager, &to_type, |inventory| {
-        inventory.set_slot_option(to_slot, Some(from_item.clone()));
-    });
+    let _ = with_inventory_mut(
+        client,
+        clients,
+        inventory_manager,
+        worlds_manager,
+        &from_type,
+        |inventory| {
+            inventory.set_slot_option(from_slot, Some(to_item.clone()));
+        },
+    );
+    let _ = with_inventory_mut(
+        client,
+        clients,
+        inventory_manager,
+        worlds_manager,
+        &to_type,
+        |inventory| {
+            inventory.set_slot_option(to_slot, Some(from_item.clone()));
+        },
+    );
 
     Some((
         from_type,
@@ -680,7 +737,11 @@ fn broadcast_inventory_changes(
             send_inventory_changes_to_client(client, &InventoryTarget::Client(target_client_id), changes.clone());
             if let Some(target_client) = clients.read().get(&target_client_id) {
                 if target_client.get_client_id() != client.get_client_id() {
-                    send_inventory_changes_to_client(target_client, &InventoryTarget::Client(target_client_id), changes);
+                    send_inventory_changes_to_client(
+                        target_client,
+                        &InventoryTarget::Client(target_client_id),
+                        changes,
+                    );
                 }
             }
         }

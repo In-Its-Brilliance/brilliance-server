@@ -1,16 +1,14 @@
+use crate::entities::entity::{Position, Rotation};
+use crate::network::events::on_player_move::move_player;
+use bevy::time::Time;
 use bevy_ecs::world::World;
 use common::commands::command::{Arg, ArgCompleterContext, Command, CommandMatch};
 use common::inventory::item::Item;
-use bevy::time::Time;
-use crate::entities::entity::{Position, Rotation};
-use crate::network::events::on_player_move::move_player;
 use network::entities::AnimationState;
 
 use crate::{
-    clients::clients_container::SharedClientsContainer,
-    console::console_sender::ConsoleSenderType,
-    items_manager::items_manager::SharedItemsManager,
-    network::sync_inventory::send_inventory_changes_to_client,
+    clients::clients_container::SharedClientsContainer, console::console_sender::ConsoleSenderType,
+    items_manager::items_manager::SharedItemsManager, network::sync_inventory::send_inventory_changes_to_client,
     worlds::worlds_manager::SharedWorldsManager,
 };
 
@@ -75,7 +73,11 @@ pub(crate) fn command_parser_teleport() -> Command {
         .arg(Arg::new("x".to_owned()).required(true))
         .arg(Arg::new("y".to_owned()).required(true))
         .arg(Arg::new("z".to_owned()).required(true))
-        .arg(Arg::new("player".to_owned()).required(false).completer(complete_players))
+        .arg(
+            Arg::new("player".to_owned())
+                .required(false)
+                .completer(complete_players),
+        )
 }
 
 fn clear_player_inventory(client: &crate::clients::client::Client) -> usize {
@@ -130,16 +132,18 @@ pub(crate) fn command_give(
     let max_stack_size = items_manager.read().get_max_stack_size(&item);
 
     let result = client.with_player_data_mut(|player_data| {
-        player_data.get_inventory_mut().add_item(item, max_stack_size, |slot, updated_item| {
-            send_inventory_changes_to_client(
-                client,
-                &crate::network::events::on_inventory_action::InventoryTarget::Client(client.get_client_id()),
-                vec![network::messages::InventorySlotChange {
-                    slot,
-                    item: updated_item.map(|item| items_manager.read().to_client_item(item)),
-                }],
-            );
-        })
+        player_data
+            .get_inventory_mut()
+            .add_item(item, max_stack_size, |slot, updated_item| {
+                send_inventory_changes_to_client(
+                    client,
+                    &crate::network::events::on_inventory_action::InventoryTarget::Client(client.get_client_id()),
+                    vec![network::messages::InventorySlotChange {
+                        slot,
+                        item: updated_item.map(|item| items_manager.read().to_client_item(item)),
+                    }],
+                );
+            })
     });
 
     match result {
@@ -289,7 +293,9 @@ pub(crate) fn command_teleport(
     let rotation = Rotation::new(0.0, 0.0);
 
     let worlds_manager = worlds_manager.write();
-    let mut world_manager = worlds_manager.get_world_manager_mut(&world_entity.get_world_slug()).unwrap();
+    let mut world_manager = worlds_manager
+        .get_world_manager_mut(&world_entity.get_world_slug())
+        .unwrap();
 
     move_player(
         &mut *world_manager,
@@ -311,10 +317,8 @@ pub(crate) fn command_teleport(
     if let Some(target_client) = clients_guard.get_by_login(&target_login) {
         target_client.network_send_spawn(&Position::new(x, y, z), &Rotation::new(0.0, 0.0), &Vec::new());
         if !target_is_sender {
-            target_client.send_console_message(format!(
-                "&a{}&r teleported you to &e{}, {}, {}&r",
-                sender_name, x, y, z
-            ));
+            target_client
+                .send_console_message(format!("&a{}&r teleported you to &e{}, {}, {}&r", sender_name, x, y, z));
         }
     }
     Ok(())

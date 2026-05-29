@@ -1,10 +1,8 @@
 use bevy::prelude::{Entity, Resource};
 
 use crate::{
-    clients::client::Client,
-    clients::clients_container::SharedClientsContainer,
-    items_manager::items_manager::SharedItemsManager,
-    network::events::on_inventory_action::InventoryAction,
+    clients::client::Client, clients::clients_container::SharedClientsContainer,
+    items_manager::items_manager::SharedItemsManager, network::events::on_inventory_action::InventoryAction,
     worlds::worlds_manager::SharedWorldsManager,
 };
 

@@ -3,18 +3,12 @@ use bevy_app::{App, Plugin};
 use crate::console::commands_executer::{CommandExecuter, CommandsHandler};
 
 pub mod client;
-pub mod console_commands;
 pub mod clients_container;
+pub mod console_commands;
 
 use console_commands::{
-    command_clear,
-    command_give,
-    command_kick,
-    command_parser_teleport,
-    command_teleport,
-    command_parser_clear,
-    command_parser_give,
-    command_parser_kick,
+    command_clear, command_give, command_kick, command_parser_clear, command_parser_give, command_parser_kick,
+    command_parser_teleport, command_teleport,
 };
 
 pub struct ClientsPlugin;

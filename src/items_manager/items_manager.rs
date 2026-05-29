@@ -108,11 +108,7 @@ impl ItemsManager {
     pub(crate) fn get_max_stack_size(&self, item: &Item) -> u16 {
         match item.get_item_kind() {
             ItemKind::Block(_) => Self::BLOCK_MAX_STACK_SIZE,
-            ItemKind::CustomItem(slug) => self
-                .items
-                .get(slug)
-                .map(ItemInfo::max_stack_size)
-                .unwrap_or(1),
+            ItemKind::CustomItem(slug) => self.items.get(slug).map(ItemInfo::max_stack_size).unwrap_or(1),
         }
     }
 

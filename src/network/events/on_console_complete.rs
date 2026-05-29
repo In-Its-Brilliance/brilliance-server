@@ -6,9 +6,7 @@ use common::utils::events::EventReader;
 use network::messages::{NetworkMessageType, ServerMessages};
 
 use crate::{
-    clients::client::Client,
-    console::commands_executer::CommandsHandler,
-    network::server::NetworkEventListener,
+    clients::client::Client, console::commands_executer::CommandsHandler, network::server::NetworkEventListener,
 };
 
 #[derive(Message)]
@@ -25,10 +23,15 @@ impl ConsoleCompleteRequestEvent {
 
 pub fn on_console_complete(world: &mut World) {
     let _s = crate::span!("events.on_console_complete");
-    world.resource_scope(|world, events: Mut<NetworkEventListener<ConsoleCompleteRequestEvent>>| {
-        for event in events.0.iter_events() {
-            let response = CommandsHandler::complete(world, Box::new(event.client.clone()), &event.request);
-            event.client.send_message(NetworkMessageType::ReliableOrdered, &ServerMessages::ConsoleCompleteResponse(response));
-        }
-    });
+    world.resource_scope(
+        |world, events: Mut<NetworkEventListener<ConsoleCompleteRequestEvent>>| {
+            for event in events.0.iter_events() {
+                let response = CommandsHandler::complete(world, Box::new(event.client.clone()), &event.request);
+                event.client.send_message(
+                    NetworkMessageType::ReliableOrdered,
+                    &ServerMessages::ConsoleCompleteResponse(response),
+                );
+            }
+        },
+    );
 }

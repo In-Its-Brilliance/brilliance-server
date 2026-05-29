@@ -156,9 +156,11 @@ pub fn update_world_chunks(
                 continue;
             };
             let chunk_storage = chunk_column_arc.read().get_chunk_storage().clone();
-            inventory_manager
-                .state_mut()
-                .register_chunk_inventories(world_slug.clone(), chunk_position, &chunk_storage);
+            inventory_manager.state_mut().register_chunk_inventories(
+                world_slug.clone(),
+                chunk_position,
+                &chunk_storage,
+            );
         }
 
         let wasm_plugin_manager = plugins_manager
