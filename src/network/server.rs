@@ -71,7 +71,14 @@ pub struct NetworkContainer {
 impl NetworkContainer {
     pub fn new(ip_port: String) -> Self {
         let rt = tokio::runtime::Runtime::new().unwrap();
-        let network = rt.block_on(async { NetworkServer::new(ip_port).await });
+        let network = match rt.block_on(async { NetworkServer::new(ip_port).await }) {
+            Ok(network) => network,
+            Err(e) => {
+                log::error!(target: "storage", "&4Server start error:");
+                log::error!(target: "storage", "&c{}", e);
+                panic!("network server init failed");
+            }
+        };
         let server_network = Arc::new(timed_lock!(network, "server_network"));
 
         let net_clone = Arc::clone(&server_network);

@@ -83,10 +83,9 @@ pub fn on_connection_info(
 
         log::info!(
             target: "network",
-            "&a✱ {login}&r connected &7ip: &e{ip} &7id: &8{id}&r &7version: &8{version}",
+            "&a✱ {login}&r connected &8ip: &7{ip} &8version: &7{version}",
             login = client_info.get_login(),
             ip = event.client.get_client_ip(),
-            id = event.client.get_client_id(),
             version = client_info.get_version(),
         );
 

@@ -83,7 +83,7 @@ impl PluginsManager {
             let elapsed = now.elapsed();
             log::info!(
                 target: "resources",
-                " □ Plugin &2\"{}\"&r loaded {:.1?};&7 Title:&8\"{}\" &7v:&8\"{}\" &7Author:&8\"{}\" &7Scripts:&8{} &7Media:&8{} &7Blocks:&8{}",
+                " □ Plugin &2\"{}\"&r loaded {:.1?};&8 Title:&7\"{}\" &8v:&7\"{}\" &8Author:&7\"{}\" &8Scripts:&7{} &8Media:&7{} &8Blocks:&7{}",
                 plugin.get_slug(),
                 elapsed,
                 plugin.get_title(),
