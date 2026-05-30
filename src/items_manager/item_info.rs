@@ -5,12 +5,16 @@ use common::inventory::item::{BodyPart, WeaponKind};
 
 #[derive(Display, Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
+pub enum ItemDisplay {
+    // resource png path; For client icon display
+    Icon(String),
+}
+
+#[derive(Display, Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum ItemType {
     Armor {
         body_part: BodyPart,
-
-        // resource png path; For client icon display
-        icon: String,
 
         // Server internal info. resource glb path
         model: String,
@@ -18,36 +22,33 @@ pub enum ItemType {
     Weapon {
         weapon_kind: WeaponKind,
 
-        // resource png path; For client icon display
-        icon: String,
-
         // Server internal info. resource glb path
         model: String,
     },
-    Other {
-        icon: String,
-    },
+    Neck,
+    Bracer,
+    Belt,
+    Ring,
+    Other,
 }
 
 impl ItemType {
-    pub(crate) fn armor(body_part: BodyPart, icon: impl Into<String>, model: impl Into<String>) -> Self {
+    pub(crate) fn armor(body_part: BodyPart, model: impl Into<String>) -> Self {
         Self::Armor {
             body_part,
-            icon: icon.into(),
             model: model.into(),
         }
     }
 
-    pub(crate) fn weapon(weapon_kind: WeaponKind, icon: impl Into<String>, model: impl Into<String>) -> Self {
+    pub(crate) fn weapon(weapon_kind: WeaponKind, model: impl Into<String>) -> Self {
         Self::Weapon {
             weapon_kind,
-            icon: icon.into(),
             model: model.into(),
         }
     }
 
-    pub(crate) fn other(icon: impl Into<String>) -> Self {
-        Self::Other { icon: icon.into() }
+    pub(crate) fn other() -> Self {
+        Self::Other
     }
 }
 
@@ -55,6 +56,7 @@ impl ItemType {
 pub struct ItemInfo {
     slug: String,
     item_type: ItemType,
+    item_display: ItemDisplay,
     title: String,
     description: String,
     #[serde(default = "ItemInfo::default_max_stack_size")]
@@ -69,6 +71,7 @@ impl ItemInfo {
     pub(crate) fn create(
         slug: impl Into<String>,
         item_type: ItemType,
+        item_display: ItemDisplay,
         title: impl Into<String>,
         description: impl Into<String>,
         max_stack_size: u16,
@@ -77,6 +80,7 @@ impl ItemInfo {
         Self {
             slug: slug.into(),
             item_type,
+            item_display,
             title: title.into(),
             description: description.into(),
             max_stack_size,
@@ -89,6 +93,10 @@ impl ItemInfo {
 
     pub(crate) fn item_type(&self) -> &ItemType {
         &self.item_type
+    }
+
+    pub(crate) fn item_display(&self) -> &ItemDisplay {
+        &self.item_display
     }
 
     pub(crate) fn title(&self) -> &String {

@@ -1,7 +1,7 @@
 pub mod item_info;
 pub mod items_manager;
 
-pub use item_info::{ItemInfo, ItemType};
+pub use item_info::{ItemDisplay, ItemInfo, ItemType};
 
 use std::sync::Arc;
 

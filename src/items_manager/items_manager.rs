@@ -4,7 +4,7 @@ use bevy_ecs::resource::Resource;
 use common::inventory::inventory::{ClientInventory, Inventory};
 use common::inventory::item::{ClientItem, ClientItemKind, Item, ItemKind};
 
-use super::item_info::{ItemInfo, ItemType};
+use super::item_info::{ItemDisplay, ItemInfo, ItemType};
 use crate::plugins::plugins_manager::PluginsManager;
 use crate::utils::Shared;
 
@@ -44,23 +44,16 @@ impl ItemsManager {
                     );
                 };
 
-                let icon = match info.item_type() {
-                    ItemType::Armor { icon, .. } | ItemType::Weapon { icon, .. } => icon.clone(),
-                    ItemType::Other { icon } => icon.clone(),
+                let icon = match info.item_display() {
+                    ItemDisplay::Icon(icon) => icon.clone(),
                 };
 
                 ClientItem::create(
                     ClientItemKind::Icon(icon.clone()),
                     item.get_amount(),
                     Some(icon),
-                    match info.item_type() {
-                        ItemType::Other { .. } => None,
-                        _ => Some(info.title().clone()),
-                    },
-                    match info.item_type() {
-                        ItemType::Other { .. } => None,
-                        _ => Some(info.description().clone()),
-                    },
+                    Some(info.title().clone()),
+                    Some(info.description().clone()),
                 )
             }
         }
@@ -83,10 +76,7 @@ impl ItemsManager {
         }
 
         match item.item_type() {
-            ItemType::Armor { icon, model, .. } | ItemType::Weapon { icon, model, .. } => {
-                if let Err(e) = plugins.has_media(icon) {
-                    return Err(format!("Item \"{}\" icon media not found: \"{}\" ({})", slug, icon, e));
-                }
+            ItemType::Armor { model, .. } | ItemType::Weapon { model, .. } => {
                 if let Err(e) = plugins.has_media(model) {
                     return Err(format!(
                         "Item \"{}\" model media not found: \"{}\" ({})",
@@ -94,8 +84,12 @@ impl ItemsManager {
                     ));
                 }
             }
-            ItemType::Other { icon } => {
-                if let Err(e) = plugins.has_media(icon) {
+            ItemType::Neck | ItemType::Bracer | ItemType::Belt | ItemType::Ring | ItemType::Other => {}
+        }
+
+        match item.item_display() {
+            ItemDisplay::Icon(icon) => {
+                if let Err(e) = plugins.has_media(&icon) {
                     return Err(format!("Item \"{}\" icon media not found: \"{}\" ({})", slug, icon, e));
                 }
             }
@@ -109,6 +103,13 @@ impl ItemsManager {
         match item.get_item_kind() {
             ItemKind::Block(_) => Self::BLOCK_MAX_STACK_SIZE,
             ItemKind::CustomItem(slug) => self.items.get(slug).map(ItemInfo::max_stack_size).unwrap_or(1),
+        }
+    }
+
+    pub(crate) fn get_item_type(&self, item: &Item) -> Option<&ItemType> {
+        match item.get_item_kind() {
+            ItemKind::Block(_) => None,
+            ItemKind::CustomItem(slug) => self.items.get(slug).map(ItemInfo::item_type),
         }
     }
 
