@@ -1,4 +1,4 @@
-use common::{inventory::inventory::Inventory, INVENTORY_BASE};
+use common::inventory::inventory::Inventory;
 use network::messages::InventorySlotChange;
 
 use crate::{
@@ -15,23 +15,11 @@ pub(crate) fn apply_drop(
     slot: u16,
     amount: u16,
 ) -> Result<(), String> {
-    validate_inventory_slot(&inventory, slot)?;
     let changes = with_inventory_mut(ctx, inventory_manager, &inventory, |inventory_data| {
         drop_stack(inventory_data, ctx.items_manager, slot as usize, amount)
     });
     broadcast_inventory_changes(ctx, inventory_manager, inventory, changes);
     Ok(())
-}
-
-fn validate_inventory_slot(inventory: &InventoryTarget, slot: u16) -> Result<(), String> {
-    match inventory {
-        InventoryTarget::Client(_) if slot as usize >= INVENTORY_BASE => Err(format!(
-            "player inventory slot {} is out of range 0..{}",
-            slot,
-            INVENTORY_BASE
-        )),
-        _ => Ok(()),
-    }
 }
 
 fn drop_stack(
@@ -69,19 +57,68 @@ fn drop_stack(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
+    use common::{inventory::item::Item, utils::debug::SmartRwLock};
+
     use super::*;
+    use crate::{items_manager::items_manager::ItemsManager, utils::Shared};
+
+    fn shared_items_manager() -> SharedItemsManager {
+        Shared::new(Arc::new(SmartRwLock::new(
+            ItemsManager::default(),
+            "inventory_actions_drop_test_items_manager",
+        )))
+    }
 
     #[test]
-    fn rejects_player_inventory_slot_out_of_range() {
-        let err = validate_inventory_slot(&InventoryTarget::Client(7), INVENTORY_BASE as u16)
-            .expect_err("must reject player slot past the end");
-        assert_eq!(
-            err,
-            format!(
-                "player inventory slot {} is out of range 0..{}",
-                INVENTORY_BASE,
-                INVENTORY_BASE
-            )
-        );
+    fn drops_part_of_stack() {
+        let items_manager = shared_items_manager();
+        let mut inventory = Inventory::create(4);
+        inventory.set_slot(0, Item::create("apple").amount(5));
+
+        let changes = drop_stack(&mut inventory, &items_manager, 0, 2);
+
+        assert_eq!(inventory.get_slot(0).unwrap().get_amount(), 3);
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0].slot, 0);
+        assert_eq!(changes[0].item.as_ref().unwrap().get_amount(), 3);
+    }
+
+    #[test]
+    fn drops_full_stack() {
+        let items_manager = shared_items_manager();
+        let mut inventory = Inventory::create(4);
+        inventory.set_slot(0, Item::create("apple").amount(5));
+
+        let changes = drop_stack(&mut inventory, &items_manager, 0, 5);
+
+        assert!(inventory.get_slot(0).is_none());
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0].slot, 0);
+        assert!(changes[0].item.is_none());
+    }
+
+    #[test]
+    fn ignores_zero_amount_drop() {
+        let items_manager = shared_items_manager();
+        let mut inventory = Inventory::create(4);
+        inventory.set_slot(0, Item::create("apple").amount(5));
+
+        let changes = drop_stack(&mut inventory, &items_manager, 0, 0);
+
+        assert!(changes.is_empty());
+        assert_eq!(inventory.get_slot(0).unwrap().get_amount(), 5);
+    }
+
+    #[test]
+    fn ignores_drop_from_empty_slot() {
+        let items_manager = shared_items_manager();
+        let mut inventory = Inventory::create(4);
+
+        let changes = drop_stack(&mut inventory, &items_manager, 0, 2);
+
+        assert!(changes.is_empty());
+        assert!(inventory.get_slot(0).is_none());
     }
 }

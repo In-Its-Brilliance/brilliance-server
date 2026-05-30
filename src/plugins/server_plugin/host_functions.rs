@@ -4,7 +4,7 @@ use crate::{
         commands::{close_inventory, get_or_create_inventory, open_inventory},
         inventory_manager::InventoryManager,
     },
-    items_manager::{ItemInfo as ServerItemInfo, ItemType as ServerItemType},
+    items_manager::{ItemDisplay as ServerItemDisplay, ItemInfo as ServerItemInfo, ItemType as ServerItemType},
     network::sync_world_change::sync_world_block_change,
     storage::storage_manager::StorageManager,
     worlds::worlds_manager::WorldsManager,
@@ -13,7 +13,9 @@ use common::{
     chunks::{block_position::BlockPosition, chunk_data::BlockDataInfo},
     inventory::item::{Item, ItemKind},
     plugin_api::inventory::OpenInventoryRequest,
-    plugin_api::items_manager::{ItemInfo as ApiItemInfo, ItemType as ApiItemType},
+    plugin_api::items_manager::{
+        ItemDisplay as ApiItemDisplay, ItemInfo as ApiItemInfo, ItemType as ApiItemType,
+    },
     server_storage::taits::{IServerStorage, PlayerData},
     utils::debug::SmartRwLock,
 };
@@ -503,20 +505,19 @@ pub fn add_item_raw(
         serde_json::from_str(&item_json).map_err(|e| Error::msg(format!("Invalid item info json: {}", e)))?;
 
     let server_item_type = match item.get_item_type() {
-        ApiItemType::Armor { body_part, icon, model } => {
-            ServerItemType::armor(body_part.clone(), icon.clone(), model.clone())
-        }
-        ApiItemType::Weapon {
-            weapon_kind,
-            icon,
-            model,
-        } => ServerItemType::weapon(weapon_kind.clone(), icon.clone(), model.clone()),
-        ApiItemType::Other { icon } => ServerItemType::other(icon.clone()),
+        ApiItemType::Armor { body_part, model } => ServerItemType::armor(body_part.clone(), model.clone()),
+        ApiItemType::Weapon { weapon_kind, model } => ServerItemType::weapon(weapon_kind.clone(), model.clone()),
+        ApiItemType::Other => ServerItemType::other(),
+    };
+
+    let server_item_display = match item.get_item_display() {
+        ApiItemDisplay::Icon(icon) => ServerItemDisplay::Icon(icon.clone()),
     };
 
     let server_item = ServerItemInfo::create(
         item.get_slug().clone(),
         server_item_type,
+        server_item_display,
         item.get_title().clone(),
         item.get_description().clone(),
         item.get_max_stack_size(),

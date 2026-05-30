@@ -1,4 +1,4 @@
-use common::{inventory::{inventory::Inventory, item::Item}, INVENTORY_BASE, INVENTORY_SLOTS};
+use common::inventory::{inventory::Inventory, item::Item};
 use network::messages::InventorySlotChange;
 
 use crate::{
@@ -19,9 +19,6 @@ pub(crate) fn apply_move(
     to_slot: u16,
     amount: u16,
 ) -> Result<(), String> {
-    validate_inventory_slot(&from_inventory, from_slot)?;
-    validate_inventory_slot(&to_inventory, to_slot)?;
-
     if from_inventory == to_inventory {
         let changes = with_inventory_mut(ctx, inventory_manager, &from_inventory, |inventory| {
             move_within_inventory(
@@ -51,36 +48,6 @@ pub(crate) fn apply_move(
 
     broadcast_inventory_changes(ctx, inventory_manager, from_type, Some(from_changes));
     broadcast_inventory_changes(ctx, inventory_manager, to_type, Some(to_changes));
-    Ok(())
-}
-
-fn validate_requested_amount(requested: u16, available: u16, from_slot: usize) -> Result<(), String> {
-    if requested == 0 {
-        return Err("requested move amount must be greater than zero".to_string());
-    }
-    if requested > available {
-        return Err(format!(
-            "requested move amount {} exceeds available amount {} in source slot {}",
-            requested, available, from_slot
-        ));
-    }
-    Ok(())
-}
-
-fn validate_inventory_slot(inventory: &InventoryTarget, slot: u16) -> Result<(), String> {
-    match inventory {
-        InventoryTarget::Client(_) => {
-            let slot = slot as usize;
-            if slot >= INVENTORY_BASE {
-                return Err(format!(
-                    "player inventory slot {} is out of range 0..{}",
-                    slot,
-                    INVENTORY_BASE
-                ));
-            }
-        }
-        InventoryTarget::World(_) => {}
-    }
     Ok(())
 }
 
@@ -215,7 +182,6 @@ fn move_between_inventories(
     })
     .flatten();
 
-    validate_requested_amount(amount, source_item.get_amount(), from_slot)?;
     let requested = amount;
 
     if let Some(existing) = target_item.as_ref() {
@@ -401,28 +367,86 @@ fn insert_item(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::sync::Arc;
 
-    #[test]
-    fn rejects_requested_amount_above_available_stack() {
-        let err = validate_requested_amount(10, 3, 0).expect_err("must reject oversized request");
-        assert_eq!(
-            err,
-            "requested move amount 10 exceeds available amount 3 in source slot 0"
-        );
+    use common::utils::debug::SmartRwLock;
+
+    use super::*;
+    use crate::{items_manager::items_manager::ItemsManager, utils::Shared};
+
+    fn shared_items_manager() -> SharedItemsManager {
+        Shared::new(Arc::new(SmartRwLock::new(
+            ItemsManager::default(),
+            "inventory_actions_move_ops_test_items_manager",
+        )))
     }
 
     #[test]
-    fn rejects_player_inventory_slot_out_of_range() {
-        let err = validate_inventory_slot(&InventoryTarget::Client(7), INVENTORY_SLOTS as u16)
-            .expect_err("must reject player slot past the end");
-        assert_eq!(
-            err,
-            format!(
-                "player inventory slot {} is out of range 0..{}",
-                INVENTORY_SLOTS,
-                INVENTORY_BASE
-            )
-        );
+    fn moves_partial_stack_into_empty_slot() {
+        let items_manager = shared_items_manager();
+        let mut inventory = Inventory::create(4);
+        inventory.set_slot(0, Item::create("apple").amount(10));
+
+        let changes = move_within_inventory(&mut inventory, &items_manager, 0, 1, 4);
+
+        assert_eq!(inventory.get_slot(0).unwrap().get_amount(), 6);
+        assert_eq!(inventory.get_slot(1).unwrap().get_amount(), 4);
+        assert_eq!(changes.len(), 2);
+        assert_eq!(changes[0].slot, 0);
+        assert_eq!(changes[1].slot, 1);
+    }
+
+    #[test]
+    fn merges_stackable_items() {
+        let items_manager = shared_items_manager();
+        let mut inventory = Inventory::create(4);
+        inventory.set_slot(0, Item::create(1u16).amount(5));
+        inventory.set_slot(1, Item::create(1u16).amount(3));
+
+        let changes = move_within_inventory(&mut inventory, &items_manager, 0, 1, 2);
+
+        assert_eq!(inventory.get_slot(0).unwrap().get_amount(), 3);
+        assert_eq!(inventory.get_slot(1).unwrap().get_amount(), 5);
+        assert_eq!(changes.len(), 2);
+    }
+
+    #[test]
+    fn swaps_non_stackable_items_only_for_full_stack_move() {
+        let items_manager = shared_items_manager();
+        let mut inventory = Inventory::create(4);
+        inventory.set_slot(0, Item::create("apple").amount(2));
+        inventory.set_slot(1, Item::create("stone").amount(1));
+
+        let changes = move_within_inventory(&mut inventory, &items_manager, 0, 1, 2);
+
+        assert_eq!(inventory.get_slot(0).unwrap().get_item_kind(), Item::create("stone").get_item_kind());
+        assert_eq!(inventory.get_slot(1).unwrap().get_item_kind(), Item::create("apple").get_item_kind());
+        assert_eq!(changes.len(), 2);
+    }
+
+    #[test]
+    fn rejects_partial_swap_for_non_stackable_items() {
+        let items_manager = shared_items_manager();
+        let mut inventory = Inventory::create(4);
+        inventory.set_slot(0, Item::create("apple").amount(2));
+        inventory.set_slot(1, Item::create("stone").amount(1));
+
+        let changes = move_within_inventory(&mut inventory, &items_manager, 0, 1, 1);
+
+        assert!(changes.is_empty());
+        assert_eq!(inventory.get_slot(0).unwrap().get_amount(), 2);
+        assert_eq!(inventory.get_slot(1).unwrap().get_amount(), 1);
+    }
+
+    #[test]
+    fn ignores_move_into_same_slot() {
+        let items_manager = shared_items_manager();
+        let mut inventory = Inventory::create(4);
+        inventory.set_slot(0, Item::create("apple").amount(2));
+
+        let changes = move_within_inventory(&mut inventory, &items_manager, 0, 0, 1);
+
+        assert!(changes.is_empty());
+        assert_eq!(inventory.get_slot(0).unwrap().get_amount(), 2);
     }
 }

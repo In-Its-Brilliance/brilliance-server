@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use ahash::AHashMap;
 use bevy::prelude::Entity;
 use common::utils::vec_remove_item;
@@ -87,15 +85,7 @@ impl InventoryWatchers {
         }
     }
 
-    pub fn num_tickets(&self, inventory_id: &u64) -> usize {
-        self.by_inventory.get(inventory_id).map(|vec| vec.len()).unwrap_or(0)
-    }
-
     pub fn get_inventory_watchers(&self, inventory_id: &u64) -> Option<&Vec<Entity>> {
         self.by_inventory.get(inventory_id)
-    }
-
-    pub fn get_watching_inventories(&self, entity: &Entity) -> Option<&Vec<u64>> {
-        self.by_entity.get(entity)
     }
 }
