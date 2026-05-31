@@ -120,6 +120,11 @@ impl Client {
         }
     }
 
+    #[cfg(test)]
+    pub fn test() -> Client {
+        Client::new(NetworkServerConnection::test())
+    }
+
     pub(crate) fn get_connection(&self) -> &NetworkServerConnection {
         &self.connection
     }

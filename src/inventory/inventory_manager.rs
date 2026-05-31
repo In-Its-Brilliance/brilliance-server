@@ -42,7 +42,7 @@ impl InventoryManager {
         clients: &SharedClientsContainer,
         items_manager: &SharedItemsManager,
         worlds_manager: &SharedWorldsManager,
-    ) -> Result<(), String> {
+    ) -> Result<(), Option<String>> {
         InventoryActions::apply_action(client, action, clients, items_manager, self, worlds_manager)
     }
 }

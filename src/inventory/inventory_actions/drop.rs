@@ -14,12 +14,11 @@ pub(crate) fn apply_drop(
     inventory: InventoryTarget,
     slot: u16,
     amount: u16,
-) -> Result<(), String> {
+) {
     let changes = with_inventory_mut(ctx, inventory_manager, &inventory, |inventory_data| {
         drop_stack(inventory_data, ctx.items_manager, slot as usize, amount)
     });
     broadcast_inventory_changes(ctx, inventory_manager, inventory, changes);
-    Ok(())
 }
 
 fn drop_stack(

@@ -121,10 +121,11 @@ pub fn on_inventory_action(
             &items_manager,
             &worlds_manager,
         ) {
-            event
-                .get_client()
-                .send_console_message(format!("inventory action rejected: {}", e));
-            log::warn!(target: "inventory", "inventory action rejected for client {}: {}", event.get_client().get_client_id(), e);
+            if let Some(msg) = e {
+                event
+                    .get_client()
+                    .send_console_message(format!("&4Inventory action rejected: &c{}", msg));
+            }
         }
     }
 }

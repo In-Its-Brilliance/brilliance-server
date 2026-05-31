@@ -3,6 +3,7 @@ mod drop;
 mod helpers;
 mod move_ops;
 
+use crate::items_manager::item_info::ItemType;
 use crate::{
     clients::client::Client,
     clients::clients_container::SharedClientsContainer,
@@ -13,10 +14,9 @@ use crate::{
 };
 use common::{
     inventory::{item::BodyPart, item::Item},
-    INVENTORY_SLOTS, SPECIAL_INVENTORY_BOOTS_SLOT, SPECIAL_INVENTORY_CHEST_SLOT,
-    SPECIAL_INVENTORY_HEAD_SLOT, SPECIAL_INVENTORY_PANTS_SLOT,
+    INVENTORY_SLOTS, SPECIAL_INVENTORY_BOOTS_SLOT, SPECIAL_INVENTORY_CHEST_SLOT, SPECIAL_INVENTORY_HEAD_SLOT,
+    SPECIAL_INVENTORY_PANTS_SLOT,
 };
-use crate::items_manager::item_info::ItemType;
 
 use helpers::{with_inventory_ref, InventoryActionCtx};
 
@@ -30,7 +30,7 @@ impl InventoryActions {
         items_manager: &SharedItemsManager,
         inventory_manager: &mut InventoryManager,
         worlds_manager: &SharedWorldsManager,
-    ) -> Result<(), String> {
+    ) -> Result<(), Option<String>> {
         let ctx = InventoryActionCtx {
             client,
             clients,
@@ -39,11 +39,7 @@ impl InventoryActions {
         };
 
         Self::authorize_action(&ctx, inventory_manager, &action)?;
-        match Self::before_action(&ctx, inventory_manager, &action) {
-            Ok(()) => {}
-            Err(None) => return Ok(()),
-            Err(Some(error)) => return Err(error),
-        }
+        Self::before_action(&ctx, inventory_manager, &action)?;
 
         match action {
             InventoryAction::Move {
@@ -68,6 +64,7 @@ impl InventoryActions {
             } => drop::apply_drop(&ctx, inventory_manager, inventory, slot, amount),
             InventoryAction::Close { inventory } => close::apply_close(&ctx, inventory_manager, inventory),
         }
+        Ok(())
     }
 
     fn authorize_action(
@@ -146,12 +143,16 @@ impl InventoryActions {
                 if target_slot_requires_armor(*to_slot as usize)
                     && !item_fits_slot(ctx.items_manager, &source_item, *to_slot as usize)
                 {
-                    return Err(Some(format!("item type does not fit target slot: {}", to_slot)));
+                    return Err(None);
                 }
 
                 Ok(())
             }
-            InventoryAction::Drop { inventory, slot, amount } => {
+            InventoryAction::Drop {
+                inventory,
+                slot,
+                amount,
+            } => {
                 if !inventory_slot_allowed(*slot) {
                     return Err(Some(format!("slot is not allowed: {}", slot)));
                 }
@@ -194,7 +195,9 @@ fn inventory_slot_allowed(slot: u16) -> bool {
 fn target_slot_requires_armor(slot: usize) -> bool {
     matches!(
         slot,
-        SPECIAL_INVENTORY_HEAD_SLOT | SPECIAL_INVENTORY_CHEST_SLOT | SPECIAL_INVENTORY_PANTS_SLOT
+        SPECIAL_INVENTORY_HEAD_SLOT
+            | SPECIAL_INVENTORY_CHEST_SLOT
+            | SPECIAL_INVENTORY_PANTS_SLOT
             | SPECIAL_INVENTORY_BOOTS_SLOT
     )
 }
@@ -206,10 +209,34 @@ fn item_fits_slot(items_manager: &SharedItemsManager, item: &Item, slot: usize) 
     };
 
     match (slot, item_type) {
-        (SPECIAL_INVENTORY_HEAD_SLOT, ItemType::Armor { body_part: BodyPart::Head, .. }) => true,
-        (SPECIAL_INVENTORY_CHEST_SLOT, ItemType::Armor { body_part: BodyPart::Chest, .. }) => true,
-        (SPECIAL_INVENTORY_PANTS_SLOT, ItemType::Armor { body_part: BodyPart::Pants, .. }) => true,
-        (SPECIAL_INVENTORY_BOOTS_SLOT, ItemType::Armor { body_part: BodyPart::Boots, .. }) => true,
+        (
+            SPECIAL_INVENTORY_HEAD_SLOT,
+            ItemType::Armor {
+                body_part: BodyPart::Head,
+                ..
+            },
+        ) => true,
+        (
+            SPECIAL_INVENTORY_CHEST_SLOT,
+            ItemType::Armor {
+                body_part: BodyPart::Chest,
+                ..
+            },
+        ) => true,
+        (
+            SPECIAL_INVENTORY_PANTS_SLOT,
+            ItemType::Armor {
+                body_part: BodyPart::Pants,
+                ..
+            },
+        ) => true,
+        (
+            SPECIAL_INVENTORY_BOOTS_SLOT,
+            ItemType::Armor {
+                body_part: BodyPart::Boots,
+                ..
+            },
+        ) => true,
         _ => false,
     }
 }
@@ -220,12 +247,11 @@ fn authorize_inventory_target(
     inventory_manager: &InventoryManager,
     inventory_target: &InventoryTarget,
 ) -> Result<(), String> {
-        match inventory_target {
-            InventoryTarget::Client(target_client_id) if *target_client_id == client_id => Ok(()),
-        InventoryTarget::Client(target_client_id) => Err(format!(
-            "You cannot act on player {} inventory",
-            target_client_id
-        )),
+    match inventory_target {
+        InventoryTarget::Client(target_client_id) if *target_client_id == client_id => Ok(()),
+        InventoryTarget::Client(target_client_id) => {
+            Err(format!("You cannot act on player {} inventory", target_client_id))
+        }
         InventoryTarget::World(inventory_id) => {
             let Some(world_entity) = world_entity else {
                 return Err(format!("You cannot act on world inventory {}", inventory_id));
@@ -245,18 +271,35 @@ fn authorize_inventory_target(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
     use bevy::prelude::Entity;
-    use common::INVENTORY_SLOTS;
+    use common::{
+        inventory::item::Item,
+        server_storage::taits::IServerStorage,
+        timed_lock,
+        utils::srotage_settings::StorageSettings,
+        INVENTORY_SLOTS,
+        SPECIAL_INVENTORY_HEAD_SLOT,
+    };
 
     use super::*;
+    use crate::{
+        clients::{client::ClientInfo, clients_container::SharedClientsContainer},
+        items_manager::item_info::{ItemDisplay, ItemInfo},
+        items_manager::items_manager::ItemsManager,
+        network::events::on_inventory_action::InventoryAction,
+        plugins::plugins_manager::PluginsManager,
+        utils::Shared,
+        worlds::worlds_manager::SharedWorldsManager,
+    };
+    use common::ServerStorageManager;
 
     #[test]
     fn allows_own_client_inventory() {
         let inventory_manager = InventoryManager::default();
         let target = InventoryTarget::Client(7);
 
-        authorize_inventory_target(7, None, &inventory_manager, &target)
-            .expect("own inventory access must be allowed");
+        authorize_inventory_target(7, None, &inventory_manager, &target).expect("own inventory access must be allowed");
     }
 
     #[test]
@@ -291,5 +334,99 @@ mod tests {
     #[test]
     fn rejects_inventory_slot_past_the_end() {
         assert!(!inventory_slot_allowed(INVENTORY_SLOTS as u16));
+    }
+
+    #[test]
+    fn rejects_non_armor_item_for_head_slot() {
+        let items_manager = Shared::new(Arc::new(timed_lock!(ItemsManager::default(), "test_items_manager")));
+        items_manager
+            .write()
+            .add_item(
+                &PluginsManager::default(),
+                ItemInfo::create(
+                    "test_other",
+                    ItemType::other(),
+                    ItemDisplay::Icon("default://assets/resources/default/icons_artefacts/icon1.png".to_string()),
+                    "Test Other",
+                    "Test Other",
+                    1,
+                ),
+            )
+            .expect("test item must be registered");
+
+        let item = Item::create("test_other");
+
+        assert!(target_slot_requires_armor(SPECIAL_INVENTORY_HEAD_SLOT));
+        assert!(!item_fits_slot(&items_manager, &item, SPECIAL_INVENTORY_HEAD_SLOT));
+    }
+
+    #[test]
+    fn rejects_moving_non_armor_item_into_head_slot() {
+        let client = crate::clients::client::Client::test();
+        client.set_client_info(ClientInfo::new(&crate::network::events::on_connection_info::PlayerConnectionInfoEvent::new(
+            client.clone(),
+            "test_player".to_string(),
+            "test".to_string(),
+            "test".to_string(),
+            "test".to_string(),
+        )));
+
+        let storage = ServerStorageManager::init(StorageSettings::in_memory()).expect("in-memory storage must init");
+        client
+            .read_player_data(&storage)
+            .expect("player data must load from storage");
+
+        let items_manager = Shared::new(Arc::new(timed_lock!(ItemsManager::default(), "test_items_manager")));
+        items_manager
+            .write()
+            .add_item(
+                &PluginsManager::default(),
+                ItemInfo::create(
+                    "test_other",
+                    ItemType::other(),
+                    ItemDisplay::Icon("default://assets/resources/default/icons_artefacts/icon1.png".to_string()),
+                    "Test Other",
+                    "Test Other",
+                    1,
+                ),
+            )
+            .expect("test item must be registered");
+
+        client.with_player_data_mut(|player_data| {
+            player_data.get_inventory_mut().set_slot(0, Item::create("test_other"));
+        });
+
+        let clients = SharedClientsContainer::new(Arc::new(timed_lock!(
+            crate::clients::clients_container::ClientsContainer::default(),
+            "test_clients"
+        )));
+        let worlds_manager = SharedWorldsManager::new(Arc::new(timed_lock!(
+            crate::worlds::worlds_manager::WorldsManager::default(),
+            "test_worlds"
+        )));
+        let mut inventory_manager = InventoryManager::default();
+
+        let result = InventoryActions::apply_action(
+            &client,
+            InventoryAction::Move {
+                from_inventory: InventoryTarget::Client(client.get_client_id()),
+                from_slot: 0,
+                to_inventory: InventoryTarget::Client(client.get_client_id()),
+                to_slot: SPECIAL_INVENTORY_HEAD_SLOT as u16,
+                amount: 1,
+            },
+            &clients,
+            &items_manager,
+            &mut inventory_manager,
+            &worlds_manager,
+        );
+
+        assert!(result.is_err(), "move into head slot with non-armor must be rejected");
+        let error = result.expect_err("move into head slot with non-armor must fail");
+        assert!(error.is_none(), "there is must be no error, its just silent denial");
+        client.with_player_data_mut(|player_data| {
+            assert!(player_data.get_inventory().get_slot(SPECIAL_INVENTORY_HEAD_SLOT).is_none());
+            assert!(player_data.get_inventory().get_slot(0).is_some());
+        });
     }
 }

@@ -9,7 +9,7 @@ pub(crate) fn apply_close(
     ctx: &InventoryActionCtx<'_>,
     inventory_manager: &mut InventoryManager,
     inventory: InventoryTarget,
-) -> Result<(), String> {
+) {
     if matches!(&inventory, InventoryTarget::Client(target_client_id) if *target_client_id == ctx.client.get_client_id())
     {
         log::error!(
@@ -17,7 +17,7 @@ pub(crate) fn apply_close(
             "client {} tried to close own inventory",
             ctx.client.get_client_id()
         );
-        return Ok(());
+        return;
     }
 
     let Some(world_entity) = ctx.client.get_world_entity() else {
@@ -26,7 +26,7 @@ pub(crate) fn apply_close(
             "client {} tried to close inventory without world entity",
             ctx.client.get_client_id()
         );
-        return Ok(());
+        return;
     };
 
     match &inventory {
@@ -39,5 +39,4 @@ pub(crate) fn apply_close(
     }
 
     send_inventory_stop_to_client(ctx.client, &inventory);
-    Ok(())
 }

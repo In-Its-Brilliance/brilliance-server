@@ -35,13 +35,7 @@ impl ItemsManager {
             }
             ItemKind::CustomItem(slug) => {
                 let Some(info) = self.items.get(slug) else {
-                    return ClientItem::create(
-                        ClientItemKind::Icon(slug.clone()),
-                        item.get_amount(),
-                        None,
-                        Some(slug.clone()),
-                        None,
-                    );
+                    return ClientItem::create(ClientItemKind::NotFound, item.get_amount(), None, Some(slug.clone()), None);
                 };
 
                 let icon = match info.item_display() {

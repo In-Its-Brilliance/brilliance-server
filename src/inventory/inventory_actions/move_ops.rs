@@ -18,7 +18,7 @@ pub(crate) fn apply_move(
     to_inventory: InventoryTarget,
     to_slot: u16,
     amount: u16,
-) -> Result<(), String> {
+) {
     if from_inventory == to_inventory {
         let changes = with_inventory_mut(ctx, inventory_manager, &from_inventory, |inventory| {
             move_within_inventory(
@@ -30,7 +30,7 @@ pub(crate) fn apply_move(
             )
         });
         broadcast_inventory_changes(ctx, inventory_manager, from_inventory, changes);
-        return Ok(());
+        return;
     }
 
     let Some((from_type, from_changes, to_type, to_changes)) = move_between_inventories(
@@ -41,14 +41,12 @@ pub(crate) fn apply_move(
         to_inventory.clone(),
         to_slot as usize,
         amount,
-    )?
-    else {
-        return Ok(());
+    ) else {
+        return;
     };
 
     broadcast_inventory_changes(ctx, inventory_manager, from_type, Some(from_changes));
     broadcast_inventory_changes(ctx, inventory_manager, to_type, Some(to_changes));
-    Ok(())
 }
 
 fn move_within_inventory(
@@ -162,20 +160,17 @@ fn move_between_inventories(
     to_inventory: InventoryTarget,
     to_slot: usize,
     amount: u16,
-) -> Result<
-    Option<(
-        InventoryTarget,
-        Vec<InventorySlotChange>,
-        InventoryTarget,
-        Vec<InventorySlotChange>,
-    )>,
-    String,
-> {
+) -> Option<(
+    InventoryTarget,
+    Vec<InventorySlotChange>,
+    InventoryTarget,
+    Vec<InventorySlotChange>,
+)> {
     let Some(source_item) = with_inventory_ref(ctx, inventory_manager, &from_inventory, |inventory| {
         inventory.get_slot(from_slot).cloned()
     })
     .flatten() else {
-        return Ok(None);
+        return None;
     };
     let target_item = with_inventory_ref(ctx, inventory_manager, &to_inventory, |inventory| {
         inventory.get_slot(to_slot).cloned()
@@ -187,29 +182,22 @@ fn move_between_inventories(
     if let Some(existing) = target_item.as_ref() {
         if !existing.can_stack_with(&source_item) {
             if requested != source_item.get_amount() {
-                return Ok(None);
+                return None;
             }
 
-            return Ok(swap_between_inventories(
-                ctx,
-                inventory_manager,
-                from_inventory,
-                from_slot,
-                to_inventory,
-                to_slot,
-            ));
+            return swap_between_inventories(ctx, inventory_manager, from_inventory, from_slot, to_inventory, to_slot);
         }
     }
 
     let accepted = calculate_transfer_amount(ctx.items_manager, &source_item, target_item.as_ref(), requested);
     if accepted == 0 {
-        return Ok(None);
+        return None;
     }
 
     let Some((from_type, moved_item, from_changes)) =
         extract_item(ctx, inventory_manager, &from_inventory, from_slot, accepted)
     else {
-        return Ok(None);
+        return None;
     };
 
     let Some((to_type, to_changes)) = insert_item(ctx, inventory_manager, &to_inventory, to_slot, moved_item.clone())
@@ -222,10 +210,10 @@ fn move_between_inventories(
             }]
         });
         broadcast_inventory_changes(ctx, inventory_manager, from_type, restore_changes);
-        return Ok(None);
+        return None;
     };
 
-    Ok(Some((from_type, from_changes, to_type, to_changes)))
+    Some((from_type, from_changes, to_type, to_changes))
 }
 
 fn swap_between_inventories(
@@ -419,8 +407,14 @@ mod tests {
 
         let changes = move_within_inventory(&mut inventory, &items_manager, 0, 1, 2);
 
-        assert_eq!(inventory.get_slot(0).unwrap().get_item_kind(), Item::create("stone").get_item_kind());
-        assert_eq!(inventory.get_slot(1).unwrap().get_item_kind(), Item::create("apple").get_item_kind());
+        assert_eq!(
+            inventory.get_slot(0).unwrap().get_item_kind(),
+            Item::create("stone").get_item_kind()
+        );
+        assert_eq!(
+            inventory.get_slot(1).unwrap().get_item_kind(),
+            Item::create("apple").get_item_kind()
+        );
         assert_eq!(changes.len(), 2);
     }
 
