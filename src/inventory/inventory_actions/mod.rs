@@ -1,9 +1,13 @@
 mod close;
 mod drop;
 mod helpers;
+mod hooks;
 mod move_ops;
 
 use crate::items_manager::item_info::ItemType;
+use bevy_ecs::system::Commands;
+#[cfg(test)]
+use bevy_ecs::world::{CommandQueue, World};
 use crate::{
     clients::client::Client,
     clients::clients_container::SharedClientsContainer,
@@ -12,15 +16,9 @@ use crate::{
     network::events::on_inventory_action::{InventoryAction, InventoryTarget},
     worlds::worlds_manager::SharedWorldsManager,
 };
-use common::{
-    inventory::{item::BodyPart, item::Item},
-    INVENTORY_SLOTS, SPECIAL_INVENTORY_ARTIFACT_SLOT, SPECIAL_INVENTORY_BELT_SLOT, SPECIAL_INVENTORY_BOOTS_SLOT,
-    SPECIAL_INVENTORY_BRACER_SLOT, SPECIAL_INVENTORY_CHEST_SLOT, SPECIAL_INVENTORY_GLOVES_SLOT,
-    SPECIAL_INVENTORY_HEAD_SLOT, SPECIAL_INVENTORY_NECK_SLOT, SPECIAL_INVENTORY_OFFHAND_SLOT,
-    SPECIAL_INVENTORY_PANTS_SLOT, SPECIAL_INVENTORY_RING_0_SLOT, SPECIAL_INVENTORY_RING_1_SLOT,
-};
 
-use helpers::{with_inventory_ref, InventoryActionCtx};
+use helpers::InventoryActionCtx;
+use hooks::{inventory_slot_allowed, item_fits_slot, target_slot_requires_armor};
 
 pub struct InventoryActions;
 
@@ -32,6 +30,7 @@ impl InventoryActions {
         items_manager: &SharedItemsManager,
         inventory_manager: &mut InventoryManager,
         worlds_manager: &SharedWorldsManager,
+        commands: &mut Commands,
     ) -> Result<(), Option<String>> {
         let ctx = InventoryActionCtx {
             client,
@@ -41,7 +40,7 @@ impl InventoryActions {
         };
 
         Self::authorize_action(&ctx, inventory_manager, &action)?;
-        Self::before_action(&ctx, inventory_manager, &action)?;
+        hooks::before_action(&ctx, inventory_manager, &action)?;
 
         match action {
             InventoryAction::Move {
@@ -52,6 +51,7 @@ impl InventoryActions {
                 amount,
             } => move_ops::apply_move(
                 &ctx,
+                commands,
                 inventory_manager,
                 from_inventory,
                 from_slot,
@@ -63,7 +63,7 @@ impl InventoryActions {
                 inventory,
                 slot,
                 amount,
-            } => drop::apply_drop(&ctx, inventory_manager, inventory, slot, amount),
+            } => drop::apply_drop(&ctx, commands, inventory_manager, inventory, slot, amount),
             InventoryAction::Close { inventory } => close::apply_close(&ctx, inventory_manager, inventory),
         }
         Ok(())
@@ -104,159 +104,6 @@ impl InventoryActions {
         authorize_inventory_target(client_id, world_entity, inventory_manager, inventory_target)
     }
 
-    fn before_action(
-        ctx: &InventoryActionCtx<'_>,
-        inventory_manager: &InventoryManager,
-        action: &InventoryAction,
-    ) -> Result<(), Option<String>> {
-        match action {
-            InventoryAction::Move {
-                from_inventory,
-                from_slot,
-                to_inventory: _,
-                to_slot,
-                amount,
-            } => {
-                if !inventory_slot_allowed(*from_slot) {
-                    return Err(Some(format!("source slot is not allowed: {}", from_slot)));
-                }
-                if !inventory_slot_allowed(*to_slot) {
-                    return Err(Some(format!("target slot is not allowed: {}", to_slot)));
-                }
-                if *amount == 0 {
-                    return Err(Some(format!("empty amount is not allowed: {}", amount)));
-                }
-
-                let Some(source_item) = with_inventory_ref(ctx, inventory_manager, from_inventory, |inventory| {
-                    inventory.get_slot(*from_slot as usize).cloned()
-                })
-                .flatten() else {
-                    return Err(Some(format!("source slot is empty: {}", from_slot)));
-                };
-
-                if *amount > source_item.get_amount() {
-                    return Err(Some(format!(
-                        "move amount {} exceeds source amount {}",
-                        amount,
-                        source_item.get_amount()
-                    )));
-                }
-
-                if target_slot_requires_armor(*to_slot as usize)
-                    && !item_fits_slot(ctx.items_manager, &source_item, *to_slot as usize)
-                {
-                    return Err(None);
-                }
-
-                Ok(())
-            }
-            InventoryAction::Drop {
-                inventory,
-                slot,
-                amount,
-            } => {
-                if !inventory_slot_allowed(*slot) {
-                    return Err(Some(format!("slot is not allowed: {}", slot)));
-                }
-                if *amount == 0 {
-                    return Err(Some(format!("empty amount is not allowed: {}", amount)));
-                }
-
-                let Some(item) = with_inventory_ref(ctx, inventory_manager, inventory, |inventory| {
-                    inventory.get_slot(*slot as usize).cloned()
-                })
-                .flatten() else {
-                    return Err(Some(format!("slot is empty: {}", slot)));
-                };
-
-                if *amount > item.get_amount() {
-                    return Err(Some(format!(
-                        "drop amount {} exceeds source amount {}",
-                        amount,
-                        item.get_amount()
-                    )));
-                }
-
-                if target_slot_requires_armor(*slot as usize)
-                    && !item_fits_slot(ctx.items_manager, &item, *slot as usize)
-                {
-                    return Err(Some(format!("item type does not fit slot: {}", slot)));
-                }
-
-                Ok(())
-            }
-            InventoryAction::Close { .. } => Ok(()),
-        }
-    }
-}
-
-fn inventory_slot_allowed(slot: u16) -> bool {
-    (slot as usize) < INVENTORY_SLOTS
-}
-
-fn target_slot_requires_armor(slot: usize) -> bool {
-    matches!(
-        slot,
-        SPECIAL_INVENTORY_HEAD_SLOT
-            | SPECIAL_INVENTORY_CHEST_SLOT
-            | SPECIAL_INVENTORY_PANTS_SLOT
-            | SPECIAL_INVENTORY_BOOTS_SLOT
-            | SPECIAL_INVENTORY_NECK_SLOT
-            | SPECIAL_INVENTORY_BRACER_SLOT
-            | SPECIAL_INVENTORY_GLOVES_SLOT
-            | SPECIAL_INVENTORY_OFFHAND_SLOT
-            | SPECIAL_INVENTORY_BELT_SLOT
-            | SPECIAL_INVENTORY_ARTIFACT_SLOT
-            | SPECIAL_INVENTORY_RING_0_SLOT
-            | SPECIAL_INVENTORY_RING_1_SLOT
-    )
-}
-
-fn item_fits_slot(items_manager: &SharedItemsManager, item: &Item, slot: usize) -> bool {
-    let items_manager = items_manager.read();
-    let Some(item_type) = items_manager.get_item_type(item) else {
-        return false;
-    };
-
-    match (slot, item_type) {
-        (
-            SPECIAL_INVENTORY_HEAD_SLOT,
-            ItemType::Armor {
-                body_part: BodyPart::Head,
-                ..
-            },
-        ) => true,
-        (
-            SPECIAL_INVENTORY_CHEST_SLOT,
-            ItemType::Armor {
-                body_part: BodyPart::Chest,
-                ..
-            },
-        ) => true,
-        (
-            SPECIAL_INVENTORY_PANTS_SLOT,
-            ItemType::Armor {
-                body_part: BodyPart::Pants,
-                ..
-            },
-        ) => true,
-        (
-            SPECIAL_INVENTORY_BOOTS_SLOT,
-            ItemType::Armor {
-                body_part: BodyPart::Boots,
-                ..
-            },
-        ) => true,
-        (SPECIAL_INVENTORY_NECK_SLOT, ItemType::Neck) => true,
-        (SPECIAL_INVENTORY_BRACER_SLOT, ItemType::Bracer) => true,
-        (SPECIAL_INVENTORY_GLOVES_SLOT, ItemType::Gloves) => true,
-        (SPECIAL_INVENTORY_OFFHAND_SLOT, ItemType::Offhand) => true,
-        (SPECIAL_INVENTORY_BELT_SLOT, ItemType::Belt) => true,
-        (SPECIAL_INVENTORY_ARTIFACT_SLOT, ItemType::Artifact) => true,
-        (SPECIAL_INVENTORY_RING_0_SLOT, ItemType::Ring) => true,
-        (SPECIAL_INVENTORY_RING_1_SLOT, ItemType::Ring) => true,
-        _ => false,
-    }
 }
 
 fn authorize_inventory_target(
@@ -470,6 +317,9 @@ mod tests {
             "test_worlds"
         )));
         let mut inventory_manager = InventoryManager::default();
+        let world = World::new();
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
 
         let result = InventoryActions::apply_action(
             &client,
@@ -484,6 +334,7 @@ mod tests {
             &items_manager,
             &mut inventory_manager,
             &worlds_manager,
+            &mut commands,
         );
 
         assert!(result.is_err(), "move into head slot with non-armor must be rejected");

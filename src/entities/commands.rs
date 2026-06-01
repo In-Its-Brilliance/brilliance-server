@@ -12,12 +12,12 @@ use super::{
     EntityComponent,
 };
 
-pub struct _UpdatePlayerComponent {
+pub struct UpdatePlayerComponent {
     client: Client,
     updated_component: EntityComponent,
 }
 
-impl _UpdatePlayerComponent {
+impl UpdatePlayerComponent {
     pub fn _create(client: Client, updated_component: EntityComponent) -> Self {
         Self {
             client,
@@ -26,7 +26,7 @@ impl _UpdatePlayerComponent {
     }
 }
 
-impl Command for _UpdatePlayerComponent {
+impl Command for UpdatePlayerComponent {
     fn apply(self, world: &mut World) {
         let worlds_manager = world.resource::<SharedWorldsManager>();
         let worlds_manager = worlds_manager.write();
@@ -57,7 +57,7 @@ impl Command for _UpdatePlayerComponent {
                         entity.remove::<EntityTagComponent>();
                     }
                 }
-                _sync_update_entity_component::<EntityTagComponent>(&*world_manager, world_entity.get_entity())
+                sync_update_entity_component::<EntityTagComponent>(&*world_manager, world_entity.get_entity())
             }
             EntityComponent::Skin(entity_skin) => {
                 is_send_to_player = true;
@@ -69,7 +69,7 @@ impl Command for _UpdatePlayerComponent {
                             Some(mut old_skin) => {
                                 // Replace the old skin
                                 *old_skin = new_skin.clone();
-                                _sync_update_entity_component::<EntitySkinComponent>(
+                                sync_update_entity_component::<EntitySkinComponent>(
                                     &*world_manager,
                                     world_entity.get_entity(),
                                 );
@@ -103,7 +103,7 @@ impl Command for _UpdatePlayerComponent {
 }
 
 /// Sync entity component for all watchers
-pub(crate) fn _sync_update_entity_component<T: Component + IEntityNetworkComponent>(
+pub(crate) fn sync_update_entity_component<T: Component + IEntityNetworkComponent>(
     world_manager: &WorldManager,
     entity: Entity,
 ) {

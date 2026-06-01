@@ -1,4 +1,5 @@
 use bevy::prelude::{Entity, Resource};
+use bevy_ecs::system::Commands;
 
 use crate::{
     clients::client::Client, clients::clients_container::SharedClientsContainer,
@@ -42,7 +43,8 @@ impl InventoryManager {
         clients: &SharedClientsContainer,
         items_manager: &SharedItemsManager,
         worlds_manager: &SharedWorldsManager,
+        commands: &mut Commands,
     ) -> Result<(), Option<String>> {
-        InventoryActions::apply_action(client, action, clients, items_manager, self, worlds_manager)
+        InventoryActions::apply_action(client, action, clients, items_manager, self, worlds_manager, commands)
     }
 }

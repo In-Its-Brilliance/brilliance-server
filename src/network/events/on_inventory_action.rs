@@ -1,5 +1,5 @@
 use bevy_ecs::message::Message;
-use bevy_ecs::system::Res;
+use bevy_ecs::system::{Commands, Res};
 use common::inventory::inventory::InventoryType;
 use common::utils::events::EventReader;
 use network::messages::InventoryAction as ClientInventoryAction;
@@ -106,6 +106,7 @@ pub fn on_inventory_action(
     inventory_manager: Res<SharedInventoryManager>,
     items_manager: Res<SharedItemsManager>,
     worlds_manager: Res<SharedWorldsManager>,
+    mut commands: Commands,
 ) {
     let _s = crate::span!("events.on_inventory_action");
     for event in events.0.iter_events() {
@@ -120,6 +121,7 @@ pub fn on_inventory_action(
             &clients,
             &items_manager,
             &worlds_manager,
+            &mut commands,
         ) {
             if let Some(msg) = e {
                 event

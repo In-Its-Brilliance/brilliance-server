@@ -1,3 +1,4 @@
+use bevy_ecs::system::Commands;
 use common::inventory::{inventory::Inventory, item::Item};
 use network::messages::InventorySlotChange;
 
@@ -6,12 +7,14 @@ use crate::{
     network::events::on_inventory_action::InventoryTarget,
 };
 
+use super::hooks::after_inventory_modified;
 use super::helpers::{
     broadcast_inventory_changes, calculate_transfer_amount, with_inventory_mut, with_inventory_ref, InventoryActionCtx,
 };
 
 pub(crate) fn apply_move(
     ctx: &InventoryActionCtx<'_>,
+    commands: &mut Commands,
     inventory_manager: &mut InventoryManager,
     from_inventory: InventoryTarget,
     from_slot: u16,
@@ -29,6 +32,9 @@ pub(crate) fn apply_move(
                 amount,
             )
         });
+        if let Some(changes) = changes.as_ref() {
+            after_inventory_modified(ctx, commands, &from_inventory, changes);
+        }
         broadcast_inventory_changes(ctx, inventory_manager, from_inventory, changes);
         return;
     }
@@ -45,6 +51,8 @@ pub(crate) fn apply_move(
         return;
     };
 
+    after_inventory_modified(ctx, commands, &from_type, &from_changes);
+    after_inventory_modified(ctx, commands, &to_type, &to_changes);
     broadcast_inventory_changes(ctx, inventory_manager, from_type, Some(from_changes));
     broadcast_inventory_changes(ctx, inventory_manager, to_type, Some(to_changes));
 }

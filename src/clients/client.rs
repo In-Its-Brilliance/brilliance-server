@@ -215,7 +215,7 @@ impl Client {
         self.send_message(NetworkMessageType::ReliableOrdered, &input);
     }
 
-    fn get_player_skin(&self, items_manager: &SharedItemsManager) -> EntitySkinData {
+    pub fn get_player_skin(&self, items_manager: &SharedItemsManager) -> EntitySkinData {
         let Some(player_data) = self.get_player_data() else {
             panic!("get_player_skin called before player data was loaded");
         };

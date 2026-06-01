@@ -1,3 +1,4 @@
+use bevy_ecs::system::Commands;
 use common::inventory::inventory::Inventory;
 use network::messages::InventorySlotChange;
 
@@ -6,10 +7,12 @@ use crate::{
     network::events::on_inventory_action::InventoryTarget,
 };
 
+use super::hooks::after_inventory_modified;
 use super::helpers::{broadcast_inventory_changes, with_inventory_mut, InventoryActionCtx};
 
 pub(crate) fn apply_drop(
     ctx: &InventoryActionCtx<'_>,
+    commands: &mut Commands,
     inventory_manager: &mut InventoryManager,
     inventory: InventoryTarget,
     slot: u16,
@@ -18,6 +21,9 @@ pub(crate) fn apply_drop(
     let changes = with_inventory_mut(ctx, inventory_manager, &inventory, |inventory_data| {
         drop_stack(inventory_data, ctx.items_manager, slot as usize, amount)
     });
+    if let Some(changes) = changes.as_ref() {
+        after_inventory_modified(ctx, commands, &inventory, changes);
+    }
     broadcast_inventory_changes(ctx, inventory_manager, inventory, changes);
 }
 
