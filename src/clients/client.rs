@@ -2,25 +2,32 @@ use ahash::AHashSet;
 use bevy::prelude::{Component, Entity};
 use common::{
     chunks::chunk_position::ChunkPosition,
+    inventory::item::BodyPart,
     server_storage::taits::{IServerStorage, PlayerData},
     utils::vec_remove_item,
-    ServerStorageManager,
+    ServerStorageManager, SPECIAL_INVENTORY_BOOTS_SLOT, SPECIAL_INVENTORY_CHEST_SLOT, SPECIAL_INVENTORY_HEAD_SLOT,
+    SPECIAL_INVENTORY_PANTS_SLOT,
 };
 use core::fmt;
 use network::{
+    entities::{entity_tag::EntityTagData, EntitySkinData},
     messages::{NetworkMessageType, ServerMessages},
     server::IServerConnection,
     NetworkServerConnection,
 };
 use parking_lot::{lock_api::MappedRwLockReadGuard, RwLock, RwLockReadGuard};
 use std::{any::Any, fmt::Display, sync::Arc};
+use std::collections::HashMap;
 
 use crate::{
     console::console_sender::{ConsoleSender, ConsoleSenderType},
     entities::{
         entity::{Position, Rotation},
+        entity_tag::EntityTagComponent,
+        skin::EntitySkinComponent,
         EntityComponent,
     },
+    items_manager::{item_info::ItemType, items_manager::SharedItemsManager},
     SEND_CHUNK_QUEUE_LIMIT,
 };
 
@@ -206,6 +213,89 @@ impl Client {
             world_slug: world_entity.get_world_slug().clone(),
         };
         self.send_message(NetworkMessageType::ReliableOrdered, &input);
+    }
+
+    fn get_player_skin(&self, items_manager: &SharedItemsManager) -> EntitySkinData {
+        let Some(player_data) = self.get_player_data() else {
+            panic!("get_player_skin called before player data was loaded");
+        };
+
+        let inventory = player_data.get_inventory();
+        let mut body_parts = HashMap::new();
+        let items_manager = items_manager.read();
+
+        Self::collect_armor_body_part(
+            &mut body_parts,
+            &items_manager,
+            inventory,
+            SPECIAL_INVENTORY_HEAD_SLOT,
+            BodyPart::Head,
+        );
+        Self::collect_armor_body_part(
+            &mut body_parts,
+            &items_manager,
+            inventory,
+            SPECIAL_INVENTORY_CHEST_SLOT,
+            BodyPart::Chest,
+        );
+        Self::collect_armor_body_part(
+            &mut body_parts,
+            &items_manager,
+            inventory,
+            SPECIAL_INVENTORY_PANTS_SLOT,
+            BodyPart::Pants,
+        );
+        Self::collect_armor_body_part(
+            &mut body_parts,
+            &items_manager,
+            inventory,
+            SPECIAL_INVENTORY_BOOTS_SLOT,
+            BodyPart::Boots,
+        );
+
+        EntitySkinData::Generic { body_parts }
+    }
+
+    // Before spawn
+    pub fn get_player_spawn_components(&self, items_manager: &SharedItemsManager) -> Vec<EntityComponent> {
+        let mut components: Vec<EntityComponent> = Default::default();
+
+        // let skin = EntitySkinComponent::create(EntitySkinData::Fixed("test://godot_robot.glb".into()));
+        let skin = EntitySkinComponent::create(self.get_player_skin(items_manager));
+        components.push(EntityComponent::Skin(Some(skin)));
+
+        let client_info = self.get_client_info().unwrap();
+        let tag = EntityTagComponent::create(EntityTagData::create(client_info.get_login().clone(), None, None, None));
+        components.push(EntityComponent::Tag(Some(tag)));
+
+        components
+    }
+
+    fn collect_armor_body_part(
+        body_parts: &mut HashMap<BodyPart, String>,
+        items_manager: &crate::items_manager::items_manager::ItemsManager,
+        inventory: &common::inventory::inventory::Inventory,
+        slot: usize,
+        expected_body_part: BodyPart,
+    ) {
+        let Some(item) = inventory.get_slot(slot) else {
+            return;
+        };
+
+        let Some(item_type) = items_manager.get_item_type(item) else {
+            // panic!("armor slot {} contains item without registered item type", slot);
+            return;
+        };
+
+        match item_type {
+            ItemType::Armor { body_part, model } if *body_part == expected_body_part => {
+                body_parts.insert(body_part.clone(), model.clone());
+            }
+            _other => {
+                // panic!("armor slot {} contains non-armor item type: {:?}", slot, other);
+                return;
+            }
+        }
     }
 
     pub fn network_send_spawn(&self, position: &Position, rotation: &Rotation, components: &Vec<EntityComponent>) {

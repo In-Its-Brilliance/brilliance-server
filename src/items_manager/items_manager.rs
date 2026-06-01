@@ -73,12 +73,19 @@ impl ItemsManager {
             ItemType::Armor { model, .. } | ItemType::Weapon { model, .. } => {
                 if let Err(e) = plugins.has_media(model) {
                     return Err(format!(
-                        "Item \"{}\" model media not found: \"{}\" ({})",
+                        "&cItem &4\"{}\"&c model media not found: &4\"{}\"&c error:&r {}",
                         slug, model, e
                     ));
                 }
             }
-            ItemType::Neck | ItemType::Bracer | ItemType::Belt | ItemType::Ring | ItemType::Other => {}
+            ItemType::Neck
+            | ItemType::Bracer
+            | ItemType::Gloves
+            | ItemType::Offhand
+            | ItemType::Belt
+            | ItemType::Artifact
+            | ItemType::Ring
+            | ItemType::Other => {}
         }
 
         match item.item_display() {

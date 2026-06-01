@@ -26,8 +26,11 @@ pub enum ItemType {
         model: String,
     },
     Neck,
-    Bracer,
+    Bracer, // Наручи
+    Gloves,
+    Offhand,
     Belt,
+    Artifact,
     Ring,
     Other,
 }

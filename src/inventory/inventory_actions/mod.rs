@@ -14,8 +14,10 @@ use crate::{
 };
 use common::{
     inventory::{item::BodyPart, item::Item},
-    INVENTORY_SLOTS, SPECIAL_INVENTORY_BOOTS_SLOT, SPECIAL_INVENTORY_CHEST_SLOT, SPECIAL_INVENTORY_HEAD_SLOT,
-    SPECIAL_INVENTORY_PANTS_SLOT,
+    INVENTORY_SLOTS, SPECIAL_INVENTORY_ARTIFACT_SLOT, SPECIAL_INVENTORY_BELT_SLOT, SPECIAL_INVENTORY_BOOTS_SLOT,
+    SPECIAL_INVENTORY_BRACER_SLOT, SPECIAL_INVENTORY_CHEST_SLOT, SPECIAL_INVENTORY_GLOVES_SLOT,
+    SPECIAL_INVENTORY_HEAD_SLOT, SPECIAL_INVENTORY_NECK_SLOT, SPECIAL_INVENTORY_OFFHAND_SLOT,
+    SPECIAL_INVENTORY_PANTS_SLOT, SPECIAL_INVENTORY_RING_0_SLOT, SPECIAL_INVENTORY_RING_1_SLOT,
 };
 
 use helpers::{with_inventory_ref, InventoryActionCtx};
@@ -199,6 +201,14 @@ fn target_slot_requires_armor(slot: usize) -> bool {
             | SPECIAL_INVENTORY_CHEST_SLOT
             | SPECIAL_INVENTORY_PANTS_SLOT
             | SPECIAL_INVENTORY_BOOTS_SLOT
+            | SPECIAL_INVENTORY_NECK_SLOT
+            | SPECIAL_INVENTORY_BRACER_SLOT
+            | SPECIAL_INVENTORY_GLOVES_SLOT
+            | SPECIAL_INVENTORY_OFFHAND_SLOT
+            | SPECIAL_INVENTORY_BELT_SLOT
+            | SPECIAL_INVENTORY_ARTIFACT_SLOT
+            | SPECIAL_INVENTORY_RING_0_SLOT
+            | SPECIAL_INVENTORY_RING_1_SLOT
     )
 }
 
@@ -237,6 +247,14 @@ fn item_fits_slot(items_manager: &SharedItemsManager, item: &Item, slot: usize) 
                 ..
             },
         ) => true,
+        (SPECIAL_INVENTORY_NECK_SLOT, ItemType::Neck) => true,
+        (SPECIAL_INVENTORY_BRACER_SLOT, ItemType::Bracer) => true,
+        (SPECIAL_INVENTORY_GLOVES_SLOT, ItemType::Gloves) => true,
+        (SPECIAL_INVENTORY_OFFHAND_SLOT, ItemType::Offhand) => true,
+        (SPECIAL_INVENTORY_BELT_SLOT, ItemType::Belt) => true,
+        (SPECIAL_INVENTORY_ARTIFACT_SLOT, ItemType::Artifact) => true,
+        (SPECIAL_INVENTORY_RING_0_SLOT, ItemType::Ring) => true,
+        (SPECIAL_INVENTORY_RING_1_SLOT, ItemType::Ring) => true,
         _ => false,
     }
 }
@@ -278,8 +296,7 @@ mod tests {
         server_storage::taits::IServerStorage,
         timed_lock,
         utils::srotage_settings::StorageSettings,
-        INVENTORY_SLOTS,
-        SPECIAL_INVENTORY_HEAD_SLOT,
+        INVENTORY_SLOTS, SPECIAL_INVENTORY_HEAD_SLOT, SPECIAL_INVENTORY_NECK_SLOT, SPECIAL_INVENTORY_RING_0_SLOT,
     };
 
     use super::*;
@@ -358,6 +375,54 @@ mod tests {
 
         assert!(target_slot_requires_armor(SPECIAL_INVENTORY_HEAD_SLOT));
         assert!(!item_fits_slot(&items_manager, &item, SPECIAL_INVENTORY_HEAD_SLOT));
+    }
+
+    #[test]
+    fn allows_neck_item_for_neck_slot() {
+        let items_manager = Shared::new(Arc::new(timed_lock!(ItemsManager::default(), "test_items_manager")));
+        items_manager
+            .write()
+            .add_item(
+                &PluginsManager::default(),
+                ItemInfo::create(
+                    "test_neck",
+                    ItemType::Neck,
+                    ItemDisplay::Icon("default://assets/resources/default/icons_artefacts/icon1.png".to_string()),
+                    "Test Neck",
+                    "Test Neck",
+                    1,
+                ),
+            )
+            .expect("test item must be registered");
+
+        let item = Item::create("test_neck");
+
+        assert!(target_slot_requires_armor(SPECIAL_INVENTORY_NECK_SLOT));
+        assert!(item_fits_slot(&items_manager, &item, SPECIAL_INVENTORY_NECK_SLOT));
+    }
+
+    #[test]
+    fn allows_ring_item_for_first_ring_slot() {
+        let items_manager = Shared::new(Arc::new(timed_lock!(ItemsManager::default(), "test_items_manager")));
+        items_manager
+            .write()
+            .add_item(
+                &PluginsManager::default(),
+                ItemInfo::create(
+                    "test_ring",
+                    ItemType::Ring,
+                    ItemDisplay::Icon("default://assets/resources/default/icons_artefacts/icon1.png".to_string()),
+                    "Test Ring",
+                    "Test Ring",
+                    1,
+                ),
+            )
+            .expect("test item must be registered");
+
+        let item = Item::create("test_ring");
+
+        assert!(target_slot_requires_armor(SPECIAL_INVENTORY_RING_0_SLOT));
+        assert!(item_fits_slot(&items_manager, &item, SPECIAL_INVENTORY_RING_0_SLOT));
     }
 
     #[test]
