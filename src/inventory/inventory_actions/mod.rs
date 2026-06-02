@@ -4,10 +4,6 @@ mod helpers;
 mod hooks;
 mod move_ops;
 
-use crate::items_manager::item_info::ItemType;
-use bevy_ecs::system::Commands;
-#[cfg(test)]
-use bevy_ecs::world::{CommandQueue, World};
 use crate::{
     clients::client::Client,
     clients::clients_container::SharedClientsContainer,
@@ -16,9 +12,11 @@ use crate::{
     network::events::on_inventory_action::{InventoryAction, InventoryTarget},
     worlds::worlds_manager::SharedWorldsManager,
 };
+use bevy_ecs::system::Commands;
+#[cfg(test)]
+use bevy_ecs::world::{CommandQueue, World};
 
 use helpers::InventoryActionCtx;
-use hooks::{inventory_slot_allowed, item_fits_slot, target_slot_requires_armor};
 
 pub struct InventoryActions;
 
@@ -103,7 +101,6 @@ impl InventoryActions {
             .map(|world_entity| world_entity.get_entity());
         authorize_inventory_target(client_id, world_entity, inventory_manager, inventory_target)
     }
-
 }
 
 fn authorize_inventory_target(
@@ -136,15 +133,15 @@ fn authorize_inventory_target(
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use crate::items_manager::item_info::ItemType;
     use bevy::prelude::Entity;
     use common::{
-        inventory::item::Item,
-        server_storage::taits::IServerStorage,
-        timed_lock,
-        utils::srotage_settings::StorageSettings,
-        INVENTORY_SLOTS, SPECIAL_INVENTORY_HEAD_SLOT, SPECIAL_INVENTORY_NECK_SLOT, SPECIAL_INVENTORY_RING_0_SLOT,
+        inventory::item::Item, server_storage::taits::IServerStorage, timed_lock,
+        utils::srotage_settings::StorageSettings, INVENTORY_SLOTS, SPECIAL_INVENTORY_HEAD_SLOT,
+        SPECIAL_INVENTORY_NECK_SLOT, SPECIAL_INVENTORY_RING_0_SLOT,
     };
+    use hooks::{inventory_slot_allowed, item_fits_slot, target_slot_requires_armor};
+    use std::sync::Arc;
 
     use super::*;
     use crate::{
@@ -157,7 +154,6 @@ mod tests {
         worlds::worlds_manager::SharedWorldsManager,
     };
     use common::ServerStorageManager;
-
     #[test]
     fn allows_own_client_inventory() {
         let inventory_manager = InventoryManager::default();
@@ -275,13 +271,15 @@ mod tests {
     #[test]
     fn rejects_moving_non_armor_item_into_head_slot() {
         let client = crate::clients::client::Client::test();
-        client.set_client_info(ClientInfo::new(&crate::network::events::on_connection_info::PlayerConnectionInfoEvent::new(
-            client.clone(),
-            "test_player".to_string(),
-            "test".to_string(),
-            "test".to_string(),
-            "test".to_string(),
-        )));
+        client.set_client_info(ClientInfo::new(
+            &crate::network::events::on_connection_info::PlayerConnectionInfoEvent::new(
+                client.clone(),
+                "test_player".to_string(),
+                "test".to_string(),
+                "test".to_string(),
+                "test".to_string(),
+            ),
+        ));
 
         let storage = ServerStorageManager::init(StorageSettings::in_memory()).expect("in-memory storage must init");
         client
@@ -341,8 +339,12 @@ mod tests {
         let error = result.expect_err("move into head slot with non-armor must fail");
         assert!(error.is_none(), "there is must be no error, its just silent denial");
         client.with_player_data_mut(|player_data| {
-            assert!(player_data.get_inventory().get_slot(SPECIAL_INVENTORY_HEAD_SLOT).is_none());
+            assert!(player_data
+                .get_inventory()
+                .get_slot(SPECIAL_INVENTORY_HEAD_SLOT)
+                .is_none());
             assert!(player_data.get_inventory().get_slot(0).is_some());
         });
     }
+
 }
