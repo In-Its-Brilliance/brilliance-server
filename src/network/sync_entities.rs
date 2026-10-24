@@ -42,7 +42,7 @@ pub(crate) fn send_start_streaming_entity(target_client: &Client, entity_ref: En
     }
 
     let msg = ServerMessages::StartStreamingEntity {
-        id: entity_ref.id().index(),
+        id: entity_ref.id().index().index(),
         world_slug: world_slug,
         position: position.to_network(),
         rotation: rotation.to_network(),
@@ -103,7 +103,7 @@ pub(crate) fn sync_entity_move(
 
     let move_msg = ServerMessages::EntityMove {
         world_slug: world_manager.get_slug().clone(),
-        id: target_entity.index(),
+        id: target_entity.index().index(),
         position: position.to_network(),
         rotation: rotation.to_network(),
         animation_state,
@@ -111,7 +111,7 @@ pub(crate) fn sync_entity_move(
     };
     let stop_msg = ServerMessages::StopStreamingEntities {
         world_slug: world_manager.get_slug().clone(),
-        ids: vec![target_entity.index()],
+        ids: vec![target_entity.index().index()],
     };
 
     match chunks_changed {
@@ -187,7 +187,7 @@ pub fn sync_entity_despawn(world_manager: &WorldManager, entity: Entity) {
 
     let stop_msg = ServerMessages::StopStreamingEntities {
         world_slug: world_manager.get_slug().clone(),
-        ids: vec![entity.index()],
+        ids: vec![entity.index().index()],
     };
 
     if let Some(entities) = world_manager

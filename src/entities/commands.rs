@@ -27,6 +27,8 @@ impl UpdatePlayerComponent {
 }
 
 impl Command for UpdatePlayerComponent {
+    type Out = ();
+
     fn apply(self, world: &mut World) {
         let worlds_manager = world.resource::<SharedWorldsManager>();
         let worlds_manager = worlds_manager.write();
@@ -118,7 +120,7 @@ pub(crate) fn sync_update_entity_component<T: Component + IEntityNetworkComponen
 
     let msg = ServerMessages::UpdateEntityComponent {
         world_slug: world_manager.get_slug().clone(),
-        id: entity_ref.id().index(),
+        id: entity_ref.id().index().index(),
         component: component,
     };
 

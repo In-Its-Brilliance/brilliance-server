@@ -22,6 +22,8 @@ impl SpawnPlayer {
 }
 
 impl Command for SpawnPlayer {
+    type Out = ();
+
     fn apply(self, world: &mut World) {
         let (world_entity, is_chunk_loaded) = {
             let items_manager = world.resource::<SharedItemsManager>();

@@ -83,9 +83,13 @@ impl PluginsManager {
             let elapsed = now.elapsed();
             log::info!(
                 target: "resources",
-                " □ Plugin &2\"{}\"&r loaded {:.1?};&8 Title:&7\"{}\" &8v:&7\"{}\" &8Author:&7\"{}\" &8Scripts:&7{} &8Media:&7{} &8Blocks:&7{}",
+                "&8├──&r Plugin &2\"{}\"&r loaded {:.1?}",
                 plugin.get_slug(),
                 elapsed,
+            );
+            log::info!(
+                target: "resources",
+                "&8│   └── &8Title:&7\"{}\" &8v:&7\"{}\" &8Author:&7\"{}\" &8Scripts:&7{} &8Media:&7{} &8Blocks:&7{}",
                 plugin.get_title(),
                 plugin.get_version(),
                 plugin.get_autor(),

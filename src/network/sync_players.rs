@@ -79,7 +79,7 @@ pub fn sync_player_move(
         let mut ids: Vec<u32> = Default::default();
         for chunk in change.abandoned_chunks.iter() {
             for entity_ref in world_manager.get_ecs().get_chunk_entities(&chunk).unwrap() {
-                ids.push(entity_ref.id().index());
+                ids.push(entity_ref.id().index().index());
             }
         }
         if ids.len() > 0 {

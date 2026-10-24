@@ -146,7 +146,10 @@ mod tests {
         let mut zip = zip::ZipArchive::new(file).unwrap();
         for i in 0..zip.len() {
             let archive_file = zip.by_index(i).unwrap();
-            let file_hash = archive_file.name().to_string();
+            let file_hash = archive_file
+                .name()
+                .expect("Invalid ZIP entry name")
+                .into_owned();
 
             let mut archive_file_data = Vec::new();
             for i in archive_file.bytes() {

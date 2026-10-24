@@ -7,7 +7,6 @@ use common::{
     worlds_storage::taits::{IWorldStorage, WorldStorageData},
     WorldStorageManager,
 };
-use rand::Rng;
 
 use crate::{
     launch_settings::LaunchSettings,
@@ -117,10 +116,7 @@ fn create_new_world(
     plugins_manager: &PluginsManager,
     worlds_manager: &mut WorldsManager,
 ) -> Result<(), String> {
-    let seed = match seed {
-        Some(s) => s,
-        None => rand::thread_rng().gen(),
-    };
+    let seed = seed.unwrap_or_else(rand::random);
 
     let server_data_path = launch_settings.get_server_data_path();
     let storage_settings = StorageSettings::from_path(server_data_path);

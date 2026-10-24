@@ -14,7 +14,7 @@ pub struct WASMPluginManager {
 impl WASMPluginManager {
     pub fn new(wasm_path: &PathBuf, plugin_root_path: &PathBuf, slug: &str, pool_size: usize) -> Result<Self, String> {
         let mut config = wasmtime::Config::new();
-        config.wasm_backtrace(false);
+        config.wasm_backtrace_max_frames(None);
 
         let primary = PluginInstance::new(wasm_path, plugin_root_path, slug, config.clone()).map(Mutex::new)?;
 
