@@ -1,16 +1,17 @@
 use bevy_ecs::message::Message;
 use bevy_ecs::system::{Commands, Res};
+use common::utils::events::EventReader;
 use common::{
     inventory::{inventory::InventoryType, item::Item},
-    INVENTORY_BASE, HOTBAR_SLOTS, SPECIAL_INVENTORY_ARTIFACT_SLOT, SPECIAL_INVENTORY_BELT_SLOT,
+    HOTBAR_SLOTS, INVENTORY_BASE, SPECIAL_INVENTORY_ARTIFACT_SLOT, SPECIAL_INVENTORY_BELT_SLOT,
     SPECIAL_INVENTORY_BOOTS_SLOT, SPECIAL_INVENTORY_BRACER_SLOT, SPECIAL_INVENTORY_CHEST_SLOT,
     SPECIAL_INVENTORY_GLOVES_SLOT, SPECIAL_INVENTORY_HEAD_SLOT, SPECIAL_INVENTORY_NECK_SLOT,
     SPECIAL_INVENTORY_OFFHAND_SLOT, SPECIAL_INVENTORY_PANTS_SLOT, SPECIAL_INVENTORY_RING_0_SLOT,
     SPECIAL_INVENTORY_RING_1_SLOT,
 };
-use common::utils::events::EventReader;
 use network::messages::InventoryAction as ClientInventoryAction;
 
+use crate::items_manager::item_info::ItemType;
 use crate::{
     clients::{client::Client, clients_container::SharedClientsContainer},
     inventory::SharedInventoryManager,
@@ -18,7 +19,6 @@ use crate::{
     network::server::NetworkEventListener,
     worlds::worlds_manager::SharedWorldsManager,
 };
-use crate::items_manager::item_info::ItemType;
 use common::inventory::item::BodyPart;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -46,6 +46,10 @@ pub enum InventoryAction {
     },
 }
 
+/// Server inventory action type
+///
+/// Client type may have PlayerPersonal inventory type.
+/// The server resolves it to the specific client's inventory.
 impl InventoryAction {
     pub fn from_client_action(client_id: u64, action: ClientInventoryAction) -> Self {
         match action {
@@ -83,10 +87,7 @@ impl InventoryAction {
                 slot,
                 amount,
             },
-            ClientInventoryAction::QuickAction {
-                from_inventory,
-                ..
-            } => Self::Close {
+            ClientInventoryAction::QuickAction { from_inventory, .. } => Self::Close {
                 inventory: match from_inventory {
                     InventoryType::PlayerPersonal => InventoryTarget::Client(client_id),
                     InventoryType::OtherPlayer(other_client_id) => InventoryTarget::Client(other_client_id),
@@ -104,6 +105,60 @@ impl InventoryAction {
     }
 }
 
+/// Inventories event reader from the clients
+pub fn on_inventory_action(
+    events: Res<NetworkEventListener<InventoryActionEvent>>,
+    clients: Res<SharedClientsContainer>,
+    inventory_manager: Res<SharedInventoryManager>,
+    items_manager: Res<SharedItemsManager>,
+    worlds_manager: Res<SharedWorldsManager>,
+    mut commands: Commands,
+) {
+    let _s = crate::span!("events.on_inventory_action");
+    for event in events.0.iter_events() {
+        let inventory_action = match event.get_inventory_action().clone() {
+            ClientInventoryAction::QuickAction {
+                from_inventory,
+                from_slot,
+            } => {
+                // Convert to instructions what to do with the inventories
+                // if action is founded
+                let Some(action) = resolve_quick_action(
+                    event.get_client(),
+                    event.get_client().get_client_id(),
+                    from_inventory,
+                    from_slot,
+                    &inventory_manager,
+                    &items_manager,
+                    &clients,
+                    &worlds_manager,
+                ) else {
+                    continue;
+                };
+                action
+            }
+            other => InventoryAction::from_client_action(event.get_client().get_client_id(), other),
+        };
+        let mut inventory_manager = inventory_manager.write();
+        if let Err(e) = inventory_manager.apply_action(
+            event.get_client(),
+            inventory_action,
+            &clients,
+            &items_manager,
+            &worlds_manager,
+            &mut commands,
+        ) {
+            if let Some(msg) = e {
+                event
+                    .get_client()
+                    .send_console_message(format!("&4Inventory action rejected: &c{}", msg));
+            }
+        }
+    }
+}
+
+/// Convert client side quick action to server instructions
+/// what to do with the inventories
 fn resolve_quick_action(
     client: &Client,
     client_id: u64,
@@ -113,7 +168,7 @@ fn resolve_quick_action(
     items_manager: &SharedItemsManager,
     clients: &SharedClientsContainer,
     worlds_manager: &SharedWorldsManager,
-) -> InventoryAction {
+) -> Option<InventoryAction> {
     let from_inventory = match from_inventory {
         InventoryType::PlayerPersonal => InventoryTarget::Client(client_id),
         InventoryType::OtherPlayer(other_client_id) => InventoryTarget::Client(other_client_id),
@@ -130,35 +185,29 @@ fn resolve_quick_action(
         &from_inventory,
         from_slot,
     ) else {
-        return InventoryAction::Close {
-            inventory: from_inventory,
-        };
+        return None;
     };
 
-    let Some(to_slot) =
-        find_quick_action_target_slot(
-            client,
-            &inventory_manager,
-            clients,
-            worlds_manager,
-            items_manager,
-            &from_inventory,
-            from_slot,
-            &item,
-        )
-    else {
-        return InventoryAction::Close {
-            inventory: from_inventory,
-        };
+    let Some(to_slot) = find_quick_action_target_slot(
+        client,
+        &inventory_manager,
+        clients,
+        worlds_manager,
+        items_manager,
+        &from_inventory,
+        from_slot,
+        &item,
+    ) else {
+        return None;
     };
 
-    InventoryAction::Move {
+    Some(InventoryAction::Move {
         from_inventory: from_inventory.clone(),
         from_slot,
         to_inventory: from_inventory,
         to_slot,
         amount: item.get_amount(),
-    }
+    })
 }
 
 fn get_inventory_item(
@@ -223,7 +272,16 @@ fn find_quick_action_target_slot(
 
     if quick_action_target_slot_requires_armor(from_slot as usize) {
         for slot in 0..QUICK_ACTION_GENERAL_SLOT_END {
-            if get_inventory_item(client, inventory_manager, clients, worlds_manager, from_inventory, slot as u16).is_none() {
+            if get_inventory_item(
+                client,
+                inventory_manager,
+                clients,
+                worlds_manager,
+                from_inventory,
+                slot as u16,
+            )
+            .is_none()
+            {
                 return Some(slot as u16);
             }
         }
@@ -237,7 +295,16 @@ fn find_quick_action_target_slot(
         if !quick_action_item_fits_slot(items_manager, item, slot) {
             continue;
         }
-        if get_inventory_item(client, inventory_manager, clients, worlds_manager, from_inventory, slot as u16).is_none() {
+        if get_inventory_item(
+            client,
+            inventory_manager,
+            clients,
+            worlds_manager,
+            from_inventory,
+            slot as u16,
+        )
+        .is_none()
+        {
             return Some(slot as u16);
         }
     }
@@ -330,50 +397,6 @@ impl InventoryActionEvent {
 
     pub fn get_inventory_action(&self) -> &ClientInventoryAction {
         &self.inventory_action
-    }
-}
-
-pub fn on_inventory_action(
-    events: Res<NetworkEventListener<InventoryActionEvent>>,
-    clients: Res<SharedClientsContainer>,
-    inventory_manager: Res<SharedInventoryManager>,
-    items_manager: Res<SharedItemsManager>,
-    worlds_manager: Res<SharedWorldsManager>,
-    mut commands: Commands,
-) {
-    let _s = crate::span!("events.on_inventory_action");
-    for event in events.0.iter_events() {
-        let inventory_action = match event.get_inventory_action().clone() {
-            ClientInventoryAction::QuickAction {
-                from_inventory,
-                from_slot,
-            } => resolve_quick_action(
-                event.get_client(),
-                event.get_client().get_client_id(),
-                from_inventory,
-                from_slot,
-                &inventory_manager,
-                &items_manager,
-                &clients,
-                &worlds_manager,
-            ),
-            other => InventoryAction::from_client_action(event.get_client().get_client_id(), other),
-        };
-        let mut inventory_manager = inventory_manager.write();
-        if let Err(e) = inventory_manager.apply_action(
-            event.get_client(),
-            inventory_action,
-            &clients,
-            &items_manager,
-            &worlds_manager,
-            &mut commands,
-        ) {
-            if let Some(msg) = e {
-                event
-                    .get_client()
-                    .send_console_message(format!("&4Inventory action rejected: &c{}", msg));
-            }
-        }
     }
 }
 
@@ -473,9 +496,7 @@ mod tests {
         );
 
         match action {
-            InventoryAction::Move {
-                from_slot, to_slot, ..
-            } => {
+            Some(InventoryAction::Move { from_slot, to_slot, .. }) => {
                 assert_eq!(from_slot, 0);
                 assert_eq!(to_slot, SPECIAL_INVENTORY_HEAD_SLOT as u16);
             }
@@ -515,9 +536,7 @@ mod tests {
         );
 
         match action {
-            InventoryAction::Move {
-                from_slot, to_slot, ..
-            } => {
+            Some(InventoryAction::Move { from_slot, to_slot, .. }) => {
                 assert_eq!(from_slot, SPECIAL_INVENTORY_HEAD_SLOT as u16);
                 assert_eq!(to_slot, 0);
             }
