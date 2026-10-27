@@ -125,11 +125,31 @@ pub(crate) fn after_inventory_modified(
         InventoryTarget::World(_) => return,
     };
 
+    {
+        let world_entity = client.get_world_entity();
+        let world_entity = world_entity.as_ref().expect("armor update expects player in world");
+        let worlds = ctx.worlds_manager.read();
+        let world = worlds
+            .get_world_manager(world_entity.get_world_slug())
+            .expect("armor update expects existing world");
+        let entity = world
+            .get_ecs()
+            .get_entity(world_entity.get_entity())
+            .expect("armor update expects existing player entity");
+        let skin = entity
+            .get::<EntitySkinComponent>()
+            .expect("armor update expects player skin component");
+        if !skin.is_generic() {
+            // Equipment changes only rebuild Generic skins; preserve Fixed and None.
+            return;
+        }
+    }
+
     update_player_skin(&client, ctx.items_manager, commands);
 }
 
 fn update_player_skin(client: &Client, items_manager: &SharedItemsManager, commands: &mut Commands) {
-    let skin = client.get_player_skin(items_manager);
+    let skin = client.get_generic_player_skin_parts(items_manager);
     commands.queue(UpdatePlayerComponent::_create(
         client.clone(),
         EntityComponent::Skin(Some(EntitySkinComponent::create(skin))),

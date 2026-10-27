@@ -215,7 +215,7 @@ impl Client {
         self.send_message(NetworkMessageType::ReliableOrdered, &input);
     }
 
-    pub fn get_player_skin(&self, items_manager: &SharedItemsManager) -> EntitySkinData {
+    pub fn get_generic_player_skin_parts(&self, items_manager: &SharedItemsManager) -> EntitySkinData {
         let Some(player_data) = self.get_player_data() else {
             panic!("get_player_skin called before player data was loaded");
         };
@@ -261,7 +261,8 @@ impl Client {
         let mut components: Vec<EntityComponent> = Default::default();
 
         // let skin = EntitySkinComponent::create(EntitySkinData::Fixed("test://godot_robot.glb".into()));
-        let skin = EntitySkinComponent::create(self.get_player_skin(items_manager));
+        // let skin = EntitySkinComponent::create(EntitySkinData::Fixed("default://assets/models/humanmale.glb".into()));
+        let skin = EntitySkinComponent::create(self.get_generic_player_skin_parts(items_manager));
         components.push(EntityComponent::Skin(Some(skin)));
 
         let client_info = self.get_client_info().unwrap();

@@ -12,6 +12,10 @@ impl EntitySkinComponent {
     pub fn create(skin: EntitySkinData) -> Self {
         Self { skin }
     }
+
+    pub fn is_generic(&self) -> bool {
+        matches!(&self.skin, EntitySkinData::Generic { .. })
+    }
 }
 
 impl IEntityNetworkComponent for EntitySkinComponent {
